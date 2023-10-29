@@ -8,15 +8,26 @@
     </head>
 
     <body>
-        <input id="search" autocomplete="off" type="search" placeholder="search"
+        <input id="search-bar" autocomplete="off" type="search" placeholder="search"
         name="query"
         hx-get="/search" 
         hx-trigger="keyup changed delay:5ms, search" 
-        hx-target="#search-results">
+        hx-target="#search-suggestion-box">
 
-        <ul id="search-results" class="search-results">
-        </ul>
+        <div id="search-suggestion-box">
+        </div>
+
+        <div id="search-results">
+            <ul>
+                <li>test 1</li>
+                <li>test 1</li>
+                <li>test 1</li>
+                <li>test 1</li>
+                <li>test 1</li>
+                <li>test 1</li>
+            </ul>
+        </div>
+        <script src="assets/main.js"></script>
     </body>
-
 </html>
 

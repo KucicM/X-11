@@ -1,5 +1,9 @@
-{{range .Results}}
-<li>
-    <h2>{{.Title}}</h2>
-</li>
-{{end}}
+<div id="search-suggestions">
+    <ul>
+        {{range .Results}}
+        <li>
+            <p>{{.Title}}</p>
+        </li>
+        {{end}}
+    </ul>
+</div>
