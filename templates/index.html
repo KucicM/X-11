@@ -8,11 +8,17 @@
     </head>
 
     <body>
-        <input id="search-bar" autocomplete="off" type="search" placeholder="search"
-        name="query"
-        hx-get="/search" 
-        hx-trigger="keyup changed delay:5ms, search" 
-        hx-target="#search-suggestion-box">
+        <div
+            hx-post="/search" 
+            hx-trigger="keyup[key=='Enter'] from:input"
+            hx-target="#search-results">
+
+            <input id="search-bar" autocomplete="off"
+                name="query"
+                hx-get="/suggest" 
+                hx-trigger="keyup changed delay:10ms"
+                hx-target="#search-suggestion-box">
+        </div>
 
         <div id="search-suggestion-box">
         </div>

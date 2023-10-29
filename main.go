@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"strings"
@@ -26,6 +27,7 @@ func main() {
 
     http.Handle("/assets/", http.FileServer(http.Dir(".")))
     http.HandleFunc("/", rootHander)
+    http.HandleFunc("/suggest", suggestHandler)
     http.HandleFunc("/search", searchHandler)
 
     log.Printf("server running on port %d\n", *port)
@@ -38,9 +40,17 @@ func rootHander(w http.ResponseWriter, _ *http.Request) {
     tmpl.Execute(w, nil)
 }
 
-func searchHandler(w http.ResponseWriter, r *http.Request) {
+func suggestHandler(w http.ResponseWriter, r *http.Request) {
     query := r.URL.Query()
     str := strings.TrimSpace(query.Get("query"))
+
+    b, err := io.ReadAll(r.Body)
+    if err != nil {
+        log.Println(err)
+        w.WriteHeader(http.StatusInternalServerError)
+    }
+
+    log.Println(string(b))
 
     if str == "" {
         w.Write([]byte(""))
@@ -54,3 +64,26 @@ func searchHandler(w http.ResponseWriter, r *http.Request) {
     tmpl.Execute(w, data)
 }
 
+func searchHandler(w http.ResponseWriter, r *http.Request) {
+    query := r.URL.Query()
+    str := strings.TrimSpace(query.Get("query"))
+
+    b, err := io.ReadAll(r.Body)
+    if err != nil {
+        log.Println(err)
+        w.WriteHeader(http.StatusInternalServerError)
+    }
+
+    log.Println(string(b))
+
+    if str == "" {
+        w.Write([]byte(""))
+        return
+    }
+
+    tmpl := template.Must(template.ParseFiles("./templates/search_results.html"))
+    data := map[string][]SearchResult{
+        "Results": {{"test1"}, {"test2"}, {"test3"}, {str}},
+    }
+    tmpl.Execute(w, data)
+}
