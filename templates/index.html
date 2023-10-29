@@ -4,15 +4,27 @@
 <head>
   <title>X-11</title>
   <link rel="stylesheet" href="assets/style.css">
+  <script src="https://unpkg.com/htmx.org@1.9.6"></script>
 </head>
 
 <body>
     <div id="main-container">
-    <div id="logo">X-11</div>
-        <div id="search-bar">
-            <input type="text" id="search-input">
+        <div id="logo">X-11</div>
+
+        <div id="search-area">
+            <div id="search-bar">
+                <span class="search-icon">🔎</span>
+                <input id="search" autocomplete="off" type="search" name="query", placeholder="search"
+                hx-get="/search" 
+                hx-trigger="keyup changed delay:5ms, search" 
+                hx-target="#search-results">
+            </div>
         </div>
     </div>
+    <table class="table">
+        <tbody id="search-results">
+        </tbody>
+    </table>
 </body>
 
 </html>

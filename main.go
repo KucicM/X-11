@@ -15,6 +15,12 @@ func main() {
         tmpl.Execute(w, nil)
     })
 
+    http.HandleFunc("/search", func(_ http.ResponseWriter, r *http.Request){
+        query := r.URL.Query()
+        str := query.Get("query")
+        log.Printf("got %+s\n", str)
+    })
+
     log.Println("server running")
     log.Fatal(http.ListenAndServe(":7323", nil))
 }
