@@ -26,6 +26,6 @@ document.addEventListener("keypress", (evt) => {
         return;
     }
 
-    document.getElementById("search-suggestion-box").hidden = true;
-    document.activeElement.blur();
+    //document.getElementById("search-suggestion-box").hidden = true;
+    //document.activeElement.blur();
 });

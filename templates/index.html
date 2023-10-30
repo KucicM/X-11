@@ -9,9 +9,10 @@
 
     <body>
         <div
-            hx-post="/search" 
+            hx-get="/search" 
             hx-trigger="keyup[key=='Enter'] from:input"
-            hx-target="#search-results">
+            hx-target="#search-results"
+            hx-include="[name='query']">
 
             <input id="search-bar" autocomplete="off"
                 name="query"

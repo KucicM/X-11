@@ -3,19 +3,22 @@ package main
 import (
 	"flag"
 	"fmt"
-	"io"
 	"log"
 	"net/http"
 	"strings"
 	"text/template"
 )
 
+type SuggestionResult struct {
+    Suggestion string
+    // maybe add from history vs no history
+}
+
 type SearchResult struct {
     Title string
 }
 
 func main() {
-
     port := flag.Int("port", 7323, "port")
     knowledge_base_path := flag.String("path", "", "where are txt documents")
     flag.Parse()
@@ -35,46 +38,27 @@ func main() {
 }
 
 func rootHander(w http.ResponseWriter, _ *http.Request) {
-    // todo store in memory
     tmpl := template.Must(template.ParseFiles("./templates/index.html"))
     tmpl.Execute(w, nil)
 }
 
 func suggestHandler(w http.ResponseWriter, r *http.Request) {
-    query := r.URL.Query()
-    str := strings.TrimSpace(query.Get("query"))
-
-    b, err := io.ReadAll(r.Body)
-    if err != nil {
-        log.Println(err)
-        w.WriteHeader(http.StatusInternalServerError)
-    }
-
-    log.Println(string(b))
-
-    if str == "" {
-        w.Write([]byte(""))
+    query := strings.TrimSpace(r.URL.Query().Get("query"))
+    if query == "" {
         return
     }
 
-    tmpl := template.Must(template.ParseFiles("./templates/search_results.html"))
-    data := map[string][]SearchResult{
-        "Results": {{"test1"}, {"test2"}, {"test3"}, {str}},
+    tmpl := template.Must(template.ParseFiles("./templates/suggestion_results.html"))
+    data := map[string][]SuggestionResult{
+        "Suggestions": {{"test1"}, {"test2"}, {"test3"}, {query}},
     }
+    log.Println("ret")
     tmpl.Execute(w, data)
 }
 
 func searchHandler(w http.ResponseWriter, r *http.Request) {
     query := r.URL.Query()
     str := strings.TrimSpace(query.Get("query"))
-
-    b, err := io.ReadAll(r.Body)
-    if err != nil {
-        log.Println(err)
-        w.WriteHeader(http.StatusInternalServerError)
-    }
-
-    log.Println(string(b))
 
     if str == "" {
         w.Write([]byte(""))
