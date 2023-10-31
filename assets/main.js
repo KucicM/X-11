@@ -17,15 +17,4 @@ function clickHandler(evt) {
 }
 
 document.addEventListener("click", clickHandler);
-document.addEventListener("keypress", (evt) => {
-    if (evt.key != "Enter") {
-        return;
-    }
 
-    if (document.getElementById("search-bar") != document.activeElement) {
-        return;
-    }
-
-    //document.getElementById("search-suggestion-box").hidden = true;
-    //document.activeElement.blur();
-});
