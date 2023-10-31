@@ -8,21 +8,15 @@
     </head>
 
     <body>
-        <div
-            hx-get="/search" 
-            hx-trigger="keyup[key=='Enter'] from:input"
-            hx-target="#search-results"
-            hx-include="[name='query']">
-
+        <form hx-get="/search" hx-target="#search-results">
             <input id="search-bar" autocomplete="off"
                 name="query"
                 hx-get="/suggest" 
                 hx-trigger="keyup changed delay:10ms"
                 hx-target="#search-suggestion-box">
-        </div>
+        </form>
 
-        <div id="search-suggestion-box">
-        </div>
+        <div id="search-suggestion-box"></div>
 
         <div id="search-results">
             <ul>
