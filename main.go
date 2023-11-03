@@ -43,6 +43,7 @@ func rootHander(w http.ResponseWriter, _ *http.Request) {
 }
 
 func suggestHandler(w http.ResponseWriter, r *http.Request) {
+    w.Header().Add("Cache-Control", "private, max-age=3600")
     query := strings.TrimSpace(r.URL.Query().Get("query"))
     if query == "" {
         return
@@ -52,7 +53,6 @@ func suggestHandler(w http.ResponseWriter, r *http.Request) {
     data := map[string][]SuggestionResult{
         "Suggestions": {{"test1"}, {"test2"}, {"test3"}, {query}},
     }
-    log.Println("ret")
     tmpl.Execute(w, data)
 }
 
