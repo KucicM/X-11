@@ -1,15 +1,12 @@
 body {
   font-family: Arial, sans-serif;
-  background-color: #333333;
   text-align: center;
 }
 
 #search-bar {
-  background-color: #333333;
-  border: 1px solid #cccccc;
+  border: 1px solid;
   border-radius: 20px;
   font-size: 16px;
-  color: #fff;
   margin-left: 20%;
   margin-right: 20%;
   width: 60%;
@@ -29,12 +26,11 @@ body {
 #search-suggestions ul {
   margin-top: 5px;
   list-style-type: none;
-  border: 1px solid #ccc;
+  border: 1px solid;
   border-radius: 10px;
   padding: 0px;
   padding-top: 10px;
   padding-bottom: 10px;
-  background-color: #333333;
 }
 
 #search-suggestions li {
@@ -43,11 +39,10 @@ body {
 }
 
 #search-suggestions p {
-  color: #fff;
   margin: 0px;
 }
 
 #search-suggestions li:hover {
-  background-color: #3e3e3e;
+    display: block;
 }
 

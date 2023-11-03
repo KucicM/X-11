@@ -49,6 +49,7 @@ func suggestHandler(w http.ResponseWriter, r *http.Request) {
         return
     }
 
+
     tmpl := template.Must(template.ParseFiles("./templates/suggestion_results.html"))
     data := map[string][]SuggestionResult{
         "Suggestions": {{"test1"}, {"test2"}, {"test3"}, {query}},

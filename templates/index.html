@@ -3,6 +3,10 @@
 
     <head>
         <title>X-11</title>
+
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <meta name    = "color-scheme" content = "light dark"/>
         <link rel="stylesheet" href="assets/style.css">
         <script src="https://unpkg.com/htmx.org@1.9.6"></script>
     </head>
@@ -13,22 +17,12 @@
                 name="query"
                 hx-get="/suggest" 
                 hx-trigger="keyup changed delay:10ms"
-                hx-target="#search-suggestion-box">
+                hx-target="#search-suggestions"
+                list="search-suggestions">
         </form>
+        <datalist id="search-suggestions" hx-swap-oob="true"></datalist>
 
-        <div id="search-suggestion-box" hx-swap-oob="true"></div>
-
-        <div id="search-results">
-            <ul>
-                <li>test 1</li>
-                <li>test 1</li>
-                <li>test 1</li>
-                <li>test 1</li>
-                <li>test 1</li>
-                <li>test 1</li>
-            </ul>
-        </div>
-        <script src="assets/main.js"></script>
+        <div id="search-results"></div>
     </body>
 </html>
 
