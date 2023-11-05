@@ -8,7 +8,7 @@ type Trie struct {
     root *trieNode
 }
 
-func BuildTrie(words chan string) *Trie {
+func BuildTrie(words chan string, topNcache int) *Trie {
     trie := &Trie{root: newTrieNode()}
     var node *trieNode
 
@@ -20,7 +20,7 @@ func BuildTrie(words chan string) *Trie {
         node.markFinal(word)
     }
 
-    trie.populateCache(10)
+    trie.populateCache(topNcache)
     return trie
 }
 

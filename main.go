@@ -34,7 +34,7 @@ func main() {
         ch <- w
     }
     close(ch)
-    trie = BuildTrie(ch)
+    trie = BuildTrie(ch, 10)
 
     http.Handle("/assets/", http.FileServer(http.Dir(".")))
     http.HandleFunc("/", rootHander)
