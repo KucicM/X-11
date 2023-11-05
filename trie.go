@@ -8,6 +8,8 @@ type Trie struct {
     root *trieNode
 }
 
+// todo store trie to disk maybe like key value
+// also building trie should maybe use disk as well
 func BuildTrie(words chan string, topNcache int) *Trie {
     trie := &Trie{root: newTrieNode()}
     var node *trieNode
