@@ -2,4 +2,7 @@ module github.com/kucicm/X-11
 
 go 1.21.1
 
-require github.com/mattn/go-sqlite3 v1.14.18 // indirect
+require (
+	github.com/jmoiron/sqlx v1.3.5 // indirect
+	github.com/mattn/go-sqlite3 v1.14.18 // indirect
+)

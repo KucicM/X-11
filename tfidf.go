@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"log"
 	"math"
-	"strings"
 	"time"
 
+	"github.com/jmoiron/sqlx"
 	_ "github.com/mattn/go-sqlite3"
 )
 
@@ -15,47 +15,68 @@ import (
 type searchTerm string
 
 type SearchIndex struct {
-    db *sql.DB // make connection pool
+    db *sqlx.DB // make connection pool
 
     termToId map[string]int
 }
 
 func NewSeachIndex() (*SearchIndex, error){
-    db, err := sql.Open("sqlite3", "test.db")
+    db, err := sqlx.Open("sqlite3", "test.db")
     if err != nil {
         return nil, err
     }
 
     // load termIds
-    _, err = db.Query("SELECT id, term FROM terms;")
+    termToId := make(map[string]int)
+    rows, err := db.Query("SELECT id, term FROM terms;")
     if err != nil {
         return nil, err
     }
 
-    return &SearchIndex{db: db}, nil
+    for rows.Next() {
+        var id int
+        var term string
+        if err := rows.Scan(&id, &term); err != nil {
+            log.Println(err)
+        } else {
+            termToId[term] = id
+        }
+    }
+    rows.Close()
+
+
+
+    return &SearchIndex{db: db, termToId: termToId}, nil
 }
 
 // maybe seperate TF and IDF in two queries per term and cache most common used terms?
 func (i *SearchIndex) Search(tokens []Token, maxReturn int) []SearchResult {
     out := make([]SearchResult, 0)
 
-    term_ids := make([]int, 0, len(tokens))
+    term_ids := make([]int, 0)
     for _, term := range toSeachTerms(tokens) {
         if id, ok := i.termToId[term]; ok {
             term_ids = append(term_ids, id)
         }
     }
 
-    predicate := strings.Repeat("?,", len(term_ids)-1) + "?"
-    query := fmt.Sprintf(`
-    SELECT file_id, SUM(tf * idf) tf_idf
-    FROM ft_idf_index
-    WHERE term_id in (%s)
-    GROUP BY file_id
+    if len(term_ids) == 0 {
+        return []SearchResult{}
+    }
+
+    q := `SELECT f.file_name, SUM(i.tf * i.idf) tf_idf
+    FROM tf_idf_index i
+    JOIN files f ON f.id = i.file_id
+    WHERE i.term_id IN (?)
+    GROUP BY i.file_id
     HAVING tf_idf > 0
-    ORDER BY tf_idf DESC;
-    `, predicate)
-    rows, err := i.db.Query(query, term_ids)
+    ORDER BY tf_idf DESC;`
+    query, args, err := sqlx.In(q, term_ids)
+    if err != nil {
+        log.Println(err)
+    }
+
+    rows, err := i.db.Query(query, args...)
     if err != nil {
         log.Println(err)
     }
@@ -67,6 +88,7 @@ func (i *SearchIndex) Search(tokens []Token, maxReturn int) []SearchResult {
         }
         out = append(out, row)
     }
+    rows.Close()
 
     return out
 }
@@ -260,7 +282,7 @@ func (b *SearchIndexBuilder) saveIDF() error {
     for term, freq := range b.absTermFreq {
         idf := max(1.0, math.Log10(float64(b.totalTermCount) / float64(1 + freq)))
         termId := b.getTermId(term)
-        if _, err := stmt.Exec(termId, idf); err != nil {
+        if _, err := stmt.Exec(idf, termId); err != nil {
             return err
         }
     }
