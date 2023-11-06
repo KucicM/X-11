@@ -21,7 +21,7 @@ func ToNgrams(content string, max_chars int) []Ngram {
     out := make([]Ngram, 0)
     tokens := Tokenize(content)
 
-    var buf Ngram = make([]Token, 0)
+    var buf Ngram = make([]Token, 0, len(tokens))
     for _, token := range tokens {
         buf = append(buf, token)
         cp := make([]Token, len(buf))
