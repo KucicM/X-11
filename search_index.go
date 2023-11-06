@@ -9,12 +9,16 @@ import (
 	"time"
 )
 
-func BuildIndex(root_dir_path, index_save_path string) (*Trie, *TfIdf) {
+func BuildIndex(root_dir_path, index_save_path string) (*Trie, *SearchIndex) {
     log.Println("building index...")
     start := time.Now()
 
     trie := NewTrie()
-    tfIdf := NewTfIdf()
+    //searchIdxBuilder := NewTfIdf()
+    searchIdxBuilder, err := NewSearchIndexBuilder()
+    if err != nil {
+        log.Fatal(err)
+    }
     filepath.WalkDir(root_dir_path, func(path string, d fs.DirEntry, err error) error {
         if err != nil {
             return err
@@ -37,29 +41,38 @@ func BuildIndex(root_dir_path, index_save_path string) (*Trie, *TfIdf) {
         }
 
         // TODO maybe just use []byte
-        //ngmas := ToNgrams(string(bytes), 1, 1)
+        tokens := Tokenize(string(bytes))
+        searchIdxBuilder.AddDocument(path, tokens)
+
         //tfIdf.Add(path, ngmas)
+        /*
         for _, ngram := range ToNgrams(string(bytes), 1, 1) {
             //trie.Insert(ngram)
             tfIdf.Insert(path, ngram)
         }
+        */
 
         return nil
     })
     trie.PopulateCache(10)
     log.Printf("index building took %v", time.Since(start))
 
-    saveIndex(trie, tfIdf, index_save_path)
+    saveIndex(trie, searchIdxBuilder, index_save_path)
 
-    return trie, tfIdf
+    searchIndex, err := NewSeachIndex()
+    if err != nil {
+        log.Fatalln(err)
+    }
+
+    return trie, searchIndex
 }
 
-func saveIndex(trie *Trie, tfIdf *TfIdf, path string) {
+func saveIndex(trie *Trie, searchIdxBuilder *SearchIndexBuilder, path string) {
     log.Printf("saving index to %v", path)
     start := time.Now()
 
     trie.Save(path)
-    tfIdf.Save(path)
+    searchIdxBuilder.Close()
 
     log.Printf("index saving took %v", time.Since(start))
 }

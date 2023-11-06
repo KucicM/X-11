@@ -9,6 +9,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+    _ "github.com/mattn/go-sqlite3"
 )
 
 // inference
@@ -16,6 +18,15 @@ type searchTerm string
 
 type SearchIndex struct {
     db *sql.DB // make connection pool
+}
+
+func NewSeachIndex() (*SearchIndex, error){
+    db, err := sql.Open("sqlite3", "test.db")
+    if err != nil {
+        return nil, err
+    }
+
+    return &SearchIndex{db: db}, nil
 }
 
 // maybe seperate TF and IDF in two queries per term and cache most common used terms?
@@ -61,6 +72,122 @@ func toSeachTerms(tokens []Token) []searchTerm {
 }
 
 // build index
+// take whole document in memory
+// build TF
+// save TF to DB
+// update in memory IDF
+// after all documents save IDF to DB
+
+// add index
+
+type SearchIndexBuilder struct {
+    db *sql.DB
+
+    // used for IDF
+    totalTermCount int
+    absTermFreq map[string]int
+}
+
+func NewSearchIndexBuilder() (*SearchIndexBuilder, error) {
+    db, err := sql.Open("sqlite3", "test.db")
+    if err != nil {
+        return nil, err
+    }
+
+    // todo maybe move name to other table to reduce size
+    log.Println("createing tf-idf table")
+    _, err = db.Exec(`CREATE TABLE IF NOT EXISTS tf_idf_index (
+        term VARCHAR(30)
+        , tf REAL
+        , idf REAL
+        , file_name VARCHAR(255)
+    );`)
+    if err != nil {
+        return nil, err
+    }
+
+    log.Println("truncating tf-idf index")
+    /*
+    _, err = db.Exec("TRUNCATE TABLE tf_idf_index;")
+    if err != nil {
+        return nil, err
+    }
+    */
+
+    return &SearchIndexBuilder{
+        db: db, 
+        totalTermCount: 0, 
+        absTermFreq: make(map[string]int),
+    }, nil
+}
+
+func (b *SearchIndexBuilder) AddDocument(name string, document []Token) {
+    relativeFreq := make(map[string]int)
+    for _, token := range document {
+        relativeFreq[string(token)] += 1
+    }
+
+    // idf part
+    totalFreq := 0
+    for k, v := range relativeFreq {
+        totalFreq += v
+        b.absTermFreq[k] += v
+    }
+    b.totalTermCount += totalFreq
+
+    // tf part
+    tx, err := b.db.Begin()
+    if err != nil {
+        log.Println(err)
+        return 
+    }
+
+    stmt, err := tx.Prepare("INSERT INTO tf_idf_index (term, tf, file_name) VALUES ($1, $2, $3);")
+    if err != nil {
+        log.Println(err)
+        return 
+    }
+    defer stmt.Close()
+
+    for term, freq := range relativeFreq {
+        tf := float64(freq) / float64(totalFreq)
+        _, err := stmt.Exec(term, tf, name)
+        if err != nil {
+            log.Println(err)
+        }
+    }
+
+    if err = tx.Commit(); err != nil {
+        log.Println(err)
+    }
+}
+
+func (b *SearchIndexBuilder) Close() {
+    log.Println("saving idf")
+    tx, err := b.db.Begin()
+    if err != nil {
+        log.Println(err)
+        return
+    }
+
+    stmt, err := tx.Prepare("UPDATE tf_idf_index SET idf = $1 WHERE term = $2")
+    if err != nil {
+        log.Println(err)
+        return
+    }
+
+    for term, freq := range b.absTermFreq {
+        idf := max(1.0, math.Log10(float64(b.totalTermCount) / float64(1 + freq)))
+        _, err := stmt.Exec(term, idf)
+        if err != nil {
+            log.Println(err)
+        }
+    }
+    if err = tx.Commit(); err != nil {
+        log.Println(err)
+    }
+}
+
 type TfIdf struct {
     FileMap map[string]*FileData `json:"fileMap"`
     Idf map[string]float64 `json:"idf"`

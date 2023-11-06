@@ -20,7 +20,7 @@ type SearchResult struct {
 }
 
 var trie *Trie
-var tfIdf *TfIdf
+var searchIndex *SearchIndex
 
 func main() {
     port := flag.Int("port", 7323, "port")
@@ -32,7 +32,7 @@ func main() {
     }
 
     // move to seperate runnable
-    trie, tfIdf = BuildIndex(*knowledge_base_path, ".")
+    trie, searchIndex = BuildIndex(*knowledge_base_path, ".")
 
     http.Handle("/assets/", http.FileServer(http.Dir(".")))
     http.HandleFunc("/", rootHander)
@@ -78,7 +78,7 @@ func searchHandler(w http.ResponseWriter, r *http.Request) {
         return
     }
 
-    res := tfIdf.Search(Tokenize(str), 20)
+    res := searchIndex.Search(Tokenize(str), 20)
     tmpl := template.Must(template.ParseFiles("./templates/search_results.html"))
     data := map[string][]SearchResult{
         "Results": res,
