@@ -15,22 +15,33 @@ func (n Ngram) Size() int {
 }
 
 type Token []rune
+func (t Token) String() string {
+    return string(t)
+}
 type source []rune
 
-func ToNgrams(content string, max_chars int) []Ngram {
-    out := make([]Ngram, 0)
+func ToNgrams(content string, nMin, nMax int) []Ngram {
     tokens := Tokenize(content)
 
-    var buf Ngram = make([]Token, 0, len(tokens))
-    for _, token := range tokens {
-        buf = append(buf, token)
-        cp := make([]Token, len(buf))
-        copy(cp, buf)
-        out = append(out, cp)
-        for buf.Size() > max_chars {
-            buf = buf[1:]
+    if len(tokens) < nMin {
+        return make([]Ngram, 0)
+    }
+
+    out := make([]Ngram, 0, len(tokens))
+    for l, h := 0, nMin; h <= len(tokens); {
+        if (h - l) > nMax {
+            l += 1
+        }
+
+        for ll := l; (h - ll) >= nMin; ll++ {
+            out = append(out, tokens[ll:h])
+        }
+
+        if h <= len(tokens) {
+            h++
         }
     }
+
     return out
 }
 
