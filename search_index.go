@@ -10,11 +10,12 @@ import (
 	"time"
 )
 
-func BuildIndex(root_dir_path, index_save_path string) (*Trie) {
+func BuildIndex(root_dir_path, index_save_path string) (*Trie, *TfIdf) {
     log.Println("building index...")
     start := time.Now()
 
     trie := NewTrie()
+    tfIdf := NewTfIdf()
     filepath.WalkDir(root_dir_path, func(path string, d fs.DirEntry, err error) error {
         if err != nil {
             return err
@@ -40,8 +41,9 @@ func BuildIndex(root_dir_path, index_save_path string) (*Trie) {
         scanner := bufio.NewScanner(file)
 
         for scanner.Scan() {
-            for _, ngram := range ToNgrams(scanner.Text(), 3, 3) {
-                trie.Insert(ngram)
+            for _, ngram := range ToNgrams(scanner.Text(), 1, 1) {
+                //trie.Insert(ngram)
+                tfIdf.Insert(path, ngram)
             }
         }
 
@@ -50,16 +52,18 @@ func BuildIndex(root_dir_path, index_save_path string) (*Trie) {
     trie.PopulateCache(10)
     log.Printf("index building took %v", time.Since(start))
 
-    saveIndex(trie, index_save_path)
+    saveIndex(trie, tfIdf, index_save_path)
 
-    return trie
+    return trie, tfIdf
 }
 
-func saveIndex(trie *Trie, path string) {
-    log.Printf("saving index to %v...", path)
+func saveIndex(trie *Trie, tfIdf *TfIdf, path string) {
+    log.Printf("saving index to %v", path)
     start := time.Now()
 
     trie.Save(path)
+    tfIdf.Save(path)
+
     log.Printf("index saving took %v", time.Since(start))
 }
 

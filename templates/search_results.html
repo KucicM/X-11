@@ -1,8 +1,13 @@
 <div id="search-suggestion-box" hx-swap-oob="true"></div>
 <ul>
-    {{range .Results}}
-    <li>
-        <p>{{.Title}}</p>
-    </li>
+    {{if .Results}}
+        {{range .Results}}
+        <li>
+            <p>{{.Title}}</p>
+            <p>{{.Rank}}</p>
+        </li>
+        {{end}}
+    {{else}}
+        <li><p>No Results</p></li>
     {{end}}
 </ul>
