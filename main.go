@@ -20,7 +20,7 @@ type SearchResult struct {
 
 var trie *Trie
 
-func main() {
+func main2() {
     port := flag.Int("port", 7323, "port")
     knowledge_base_path := flag.String("path", "", "where are txt documents")
     flag.Parse()
