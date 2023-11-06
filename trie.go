@@ -1,8 +1,23 @@
 package main
 
 import (
+	"log"
 	"sort"
+	"time"
 )
+
+type Prefix []*Token
+var empytToken = Token([]rune{' '})
+
+func createPrefix(tokens []*Token) Prefix {
+    prefix := make([]*Token, 0, 2 * len(tokens))
+    prefix = append(prefix, tokens[0])
+    for i := 1; i < len(tokens); i++ {
+        prefix = append(prefix, &empytToken)
+        prefix = append(prefix, tokens[i])
+    }
+    return prefix
+}
 
 type Trie struct {
     root *trieNode
@@ -10,20 +25,22 @@ type Trie struct {
 
 // todo store trie to disk maybe like key value
 // also building trie should maybe use disk as well
-func BuildTrie(words chan Token, topNcache int) *Trie {
-    trie := &Trie{root: newTrieNode()}
-    var node *trieNode
+func NewTrie() *Trie {
+    return &Trie{root: newTrieNode()}
+}
 
-    for word := range words {
-        node = trie.root
-        for _, w := range word {
-            node = node.next_or_create(w)
-        }
-        node.markFinal(word)
+func (t *Trie) Insert(ngram Ngram) {
+    if len(ngram) == 0 {
+        return 
     }
-
-    trie.populateCache(topNcache)
-    return trie
+    prefix := createPrefix(ngram)
+    node := t.root
+    for _, token := range prefix {
+        for _, t := range *token {
+            node = node.next_or_create(t)
+        }
+    }
+    node.markFinal(prefix)
 }
 
 func LoadTrie(path string) (*Trie, error) {
@@ -34,35 +51,43 @@ func (t *Trie) Save(path string) error {
     return nil
 }
 
-func (t *Trie) populateCache(n int) {
+func (t *Trie) PopulateCache(n int) {
+    start := time.Now()
+    log.Println("INFO: populating trie cache")
     t.root.populateCache(n)
+    log.Printf("INFO: trie cache population took %v", time.Since(start))
 }
 
-func (t *Trie) finaAll(prefix Token) []Token {
+func (t *Trie) Search(tokens []*Token) []Prefix {
+    prefix := createPrefix(tokens)
     node := t.root
     for i := 0; i < len(prefix) && node != nil; i++ {
-        node = node.next(prefix[i])
+        p := *prefix[i]
+        for j := 0; j < len(p) && node != nil; j++ {
+            node = node.next(p[j])
+        }
     }
 
     if node == nil {
-        return []Token{}
+        return []Prefix{}
     }
+
     return node.topN()
 }
 
-type tokenFreq struct {
+type prefixFreq struct {
     freq uint
-    token Token
+    prefix Prefix
 }
 
 type trieNode struct {
     children map[rune]*trieNode
-    word tokenFreq
-    topNWords []*tokenFreq
+    word prefixFreq
+    topNWords []*prefixFreq
 }
 
-func (n *trieNode) populateCache(topN int) []*tokenFreq {
-    n.topNWords = make([]*tokenFreq, 0, len(n.children))
+func (n *trieNode) populateCache(topN int) []*prefixFreq {
+    n.topNWords = make([]*prefixFreq, 0, len(n.children))
 
     if len(n.children) == 0 && n.word.freq == 0 {
         return n.topNWords
@@ -86,7 +111,7 @@ func (n *trieNode) populateCache(topN int) []*tokenFreq {
 }
 
 func newTrieNode() *trieNode {
-    return &trieNode{children: make(map[rune]*trieNode), word: tokenFreq{}}
+    return &trieNode{children: make(map[rune]*trieNode), word: prefixFreq{}}
 }
 
 func (n *trieNode) next_or_create(b rune) *trieNode {
@@ -102,15 +127,15 @@ func (n *trieNode) next(b rune) *trieNode {
     return n.children[b]
 }
 
-func (n *trieNode) markFinal(token Token) {
+func (n *trieNode) markFinal(prefix Prefix) {
     n.word.freq += 1
-    n.word.token = token
+    n.word.prefix = prefix
 }
 
-func (n *trieNode) topN() []Token {
-    ret := make([]Token, 0, len(n.topNWords))
+func (n *trieNode) topN() []Prefix {
+    ret := make([]Prefix, 0, len(n.topNWords))
     for _, w := range n.topNWords {
-        ret = append(ret, w.token)
+        ret = append(ret, w.prefix)
     }
     return ret
 }

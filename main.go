@@ -29,9 +29,8 @@ func main() {
         log.Fatalln("path must be provided")
     }
 
-    ch := make(chan Token, 5)
-    close(ch)
-    trie = BuildTrie(ch, 10)
+    // move to seperate runnable
+    trie = BuildIndex(*knowledge_base_path, ".")
 
     http.Handle("/assets/", http.FileServer(http.Dir(".")))
     http.HandleFunc("/", rootHander)
@@ -57,10 +56,11 @@ func suggestHandler(w http.ResponseWriter, r *http.Request) {
 
     tmpl := template.Must(template.ParseFiles("./templates/suggestion_results.html"))
     suggestions := make([]SuggestionResult, 0)
-    /*for _, s := range trie.finaAll(query) {
-        suggestions = append(suggestions, SuggestionResult{s})
+
+    tokens := Tokenize(query)
+    for _, token := range trie.Search(tokens) {
+        suggestions = append(suggestions, SuggestionResult{UnTokenize(token)})
     }
-    */
     data := map[string][]SuggestionResult{
         "Suggestions": suggestions,
     }

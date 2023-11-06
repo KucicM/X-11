@@ -1,11 +1,38 @@
 package main
 
 import (
+	"strings"
 	"unicode"
 )
+type Ngram []Token
+
+func (n Ngram) Size() int {
+    total := 0
+    for _, t := range n {
+        total += len(t)
+    }
+    return total
+}
 
 type Token []rune
 type source []rune
+
+func ToNgrams(content string, max_chars int) []Ngram {
+    out := make([]Ngram, 0)
+    tokens := Tokenize(content)
+
+    var buf Ngram = make([]Token, 0)
+    for _, token := range tokens {
+        buf = append(buf, token)
+        cp := make([]Token, len(buf))
+        copy(cp, buf)
+        out = append(out, cp)
+        for buf.Size() > max_chars {
+            buf = buf[1:]
+        }
+    }
+    return out
+}
 
 func Tokenize(content string) []Token {
     out := make([]Token, 0)
@@ -14,10 +41,20 @@ func Tokenize(content string) []Token {
     for len(src) > 0 {
         var token Token
         src, token = src.next()
-        out = append(out, token)
+        if len(token) > 0 {
+            out = append(out, token)
+        }
     }
 
     return out
+}
+
+func UnTokenize(tokens []Token) string {
+    strs := make([]string, 0, len(tokens))
+    for _, token := range tokens {
+        strs = append(strs, string(token))
+    }
+    return strings.Join(strs, " ")
 }
 
 func (src source) next() (source, Token) {
@@ -27,6 +64,10 @@ func (src source) next() (source, Token) {
 
     if len(src) == 0 {
         return src, Token{}
+    }
+
+    if unicode.IsPunct(src[0]) {
+        return src[1:], Token{}
     }
 
     if unicode.IsDigit(src[0]) {
