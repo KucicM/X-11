@@ -29,10 +29,7 @@ func main2() {
         log.Fatalln("path must be provided")
     }
 
-    ch := make(chan string, 5)
-    for _, w := range []string{"real test1", "real test2", "real test3"} {
-        ch <- w
-    }
+    ch := make(chan Token, 5)
     close(ch)
     trie = BuildTrie(ch, 10)
 
@@ -60,9 +57,10 @@ func suggestHandler(w http.ResponseWriter, r *http.Request) {
 
     tmpl := template.Must(template.ParseFiles("./templates/suggestion_results.html"))
     suggestions := make([]SuggestionResult, 0)
-    for _, s := range trie.finaAll(query) {
+    /*for _, s := range trie.finaAll(query) {
         suggestions = append(suggestions, SuggestionResult{s})
     }
+    */
     data := map[string][]SuggestionResult{
         "Suggestions": suggestions,
     }
