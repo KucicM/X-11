@@ -1,14 +1,11 @@
 package main
 
 import (
-	"container/heap"
 	"database/sql"
 	"fmt"
 	"log"
 	"math"
-	"sort"
 	"strings"
-	"time"
 
     _ "github.com/mattn/go-sqlite3"
 )
@@ -18,6 +15,8 @@ type searchTerm string
 
 type SearchIndex struct {
     db *sql.DB // make connection pool
+
+    termToId map[string]int
 }
 
 func NewSeachIndex() (*SearchIndex, error){
@@ -37,12 +36,13 @@ func (i *SearchIndex) Search(tokens []Token, maxReturn int) []SearchResult {
 
     predicate := strings.Repeat("?,", len(terms)-1) + "?"
     query := fmt.Sprintf(`
+    SELECT 
         SELECT 
             f.FileName
             , SUM(f.TF * g.IDF) TfIdf
         FROM FileIndex f
         JOIN GlobalIndex g ON g.Term = f.Term
-        WHERE f.term in (%s)
+        WHERE f.term_id in (%s)
         GROUP BY f.FileName
         HAVING TfIdf > 0
         ORDER BY TfIdf;
@@ -223,7 +223,7 @@ func (b *SearchIndexBuilder) saveTermIds() error {
         return err
     }
 
-    stmt, err := tx.Prepare("INSERT INTO terms (id, term_id) VALUES ($1, $2);")
+    stmt, err := tx.Prepare("INSERT INTO terms (id, term) VALUES ($1, $2);")
     if err != nil {
         return err
     }
@@ -244,14 +244,15 @@ func (b *SearchIndexBuilder) saveIDF() error {
         return err
     }
 
-    stmt, err := tx.Prepare("UPDATE tf_idf_index SET idf = $1 WHERE term = $2")
+    stmt, err := tx.Prepare("UPDATE tf_idf_index SET idf = $1 WHERE term_id = $2")
     if err != nil {
         return err
     }
 
     for term, freq := range b.absTermFreq {
         idf := max(1.0, math.Log10(float64(b.totalTermCount) / float64(1 + freq)))
-        if _, err := stmt.Exec(term, idf); err != nil {
+        termId := b.getTermId(term)
+        if _, err := stmt.Exec(termId, idf); err != nil {
             return err
         }
     }
