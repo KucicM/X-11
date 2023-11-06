@@ -65,7 +65,7 @@ func UnTokenize(tokens []Token) string {
     for _, token := range tokens {
         strs = append(strs, string(token))
     }
-    return strings.Join(strs, " ")
+    return strings.Join(strs, "")
 }
 
 func (src source) next() (source, Token) {
