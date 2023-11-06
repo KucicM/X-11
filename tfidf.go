@@ -6,8 +6,9 @@ import (
 	"log"
 	"math"
 	"strings"
+	"time"
 
-    _ "github.com/mattn/go-sqlite3"
+	_ "github.com/mattn/go-sqlite3"
 )
 
 // inference
@@ -25,6 +26,12 @@ func NewSeachIndex() (*SearchIndex, error){
         return nil, err
     }
 
+    // load termIds
+    _, err = db.Query("SELECT id, term FROM terms;")
+    if err != nil {
+        return nil, err
+    }
+
     return &SearchIndex{db: db}, nil
 }
 
@@ -32,22 +39,23 @@ func NewSeachIndex() (*SearchIndex, error){
 func (i *SearchIndex) Search(tokens []Token, maxReturn int) []SearchResult {
     out := make([]SearchResult, 0)
 
-    terms := toSeachTerms(tokens)
+    term_ids := make([]int, 0, len(tokens))
+    for _, term := range toSeachTerms(tokens) {
+        if id, ok := i.termToId[term]; ok {
+            term_ids = append(term_ids, id)
+        }
+    }
 
-    predicate := strings.Repeat("?,", len(terms)-1) + "?"
+    predicate := strings.Repeat("?,", len(term_ids)-1) + "?"
     query := fmt.Sprintf(`
-    SELECT 
-        SELECT 
-            f.FileName
-            , SUM(f.TF * g.IDF) TfIdf
-        FROM FileIndex f
-        JOIN GlobalIndex g ON g.Term = f.Term
-        WHERE f.term_id in (%s)
-        GROUP BY f.FileName
-        HAVING TfIdf > 0
-        ORDER BY TfIdf;
+    SELECT file_id, SUM(tf * idf) tf_idf
+    FROM ft_idf_index
+    WHERE term_id in (%s)
+    GROUP BY file_id
+    HAVING tf_idf > 0
+    ORDER BY tf_idf DESC;
     `, predicate)
-    rows, err := i.db.Query(query, terms)
+    rows, err := i.db.Query(query, term_ids)
     if err != nil {
         log.Println(err)
     }
@@ -63,15 +71,25 @@ func (i *SearchIndex) Search(tokens []Token, maxReturn int) []SearchResult {
     return out
 }
 
-func toSeachTerms(tokens []Token) []searchTerm {
-    terms := make([]searchTerm, 0, len(tokens))
+func toSeachTerms(tokens []Token) []string {
+    terms := make([]string, 0, len(tokens))
     for _, token := range tokens {
-        terms = append(terms, searchTerm(token))
+        terms = append(terms, string(token))
     }
     return terms
 }
 
-// add index
+
+// creating index
+var initQueries = []string{
+    "CREATE TABLE IF NOT EXISTS tf_idf_index (term_id INTEGER, tf REAL, idf REAL, file_id INTEGER);",
+    "CREATE TABLE IF NOT EXISTS files (id INTEGER PRIMARY KEY, file_name varchar(255), file_path varchar(255));",
+    "CREATE TABLE IF NOT EXISTS terms (id INTEGER, term VARCHAR(30));",
+    "DELETE FROM tf_idf_index;",
+    "DELETE FROM files;",
+    "DELETE FROM terms;",
+    "DROP INDEX IF EXISTS idx_term_id_tf_idf_index;",
+}
 type SearchIndexBuilder struct {
     db *sql.DB
 
@@ -90,50 +108,11 @@ func NewSearchIndexBuilder() (*SearchIndexBuilder, error) {
         return nil, err
     }
 
-    log.Println("createing tf-idf table")
-    _, err = db.Exec(`CREATE TABLE IF NOT EXISTS tf_idf_index (
-        term_id INTEGER
-        , tf REAL
-        , idf REAL
-        , file_id INTEGER
-    );`)
-    if err != nil {
-        return nil, err
-    }
-
-    _, err = db.Exec(`CREATE TABLE IF NOT EXISTS files (
-        id INTEGER PRIMARY KEY
-        , file_name varchar(255)
-        , file_path varchar(255)
-    );`)
-    if err != nil {
-        return nil, err
-    }
-
-    _, err = db.Exec(`CREATE TABLE IF NOT EXISTS terms (
-        id INTEGER
-        , term VARCHAR(30)
-    );`)
-    if err != nil {
-        return nil, err
-    }
-
-    log.Println("truncating tf-idf index")
-    _, err = db.Exec("DELETE FROM tf_idf_index;")
-    if err != nil {
-        return nil, err
-    }
-
-    log.Println("truncating file data")
-    _, err = db.Exec("DELETE FROM files;")
-    if err != nil {
-        return nil, err
-    }
-
-    log.Println("truncating file data")
-    _, err = db.Exec("DELETE FROM terms;")
-    if err != nil {
-        return nil, err
+    for _, query := range initQueries {
+        if _, err := db.Exec(query); err != nil {
+            db.Close()
+            return nil, fmt.Errorf("ERROR: running query `%s` resulted in error %s", query, err)
+        }
     }
 
     return &SearchIndexBuilder{
@@ -207,7 +186,13 @@ func (b *SearchIndexBuilder) getTermId(term string) int {
 }
 
 func (b *SearchIndexBuilder) Close() {
-    log.Println("saving idf")
+    defer b.db.Close()
+    log.Println("saving cached values")
+
+    if err := b.createIndices(); err != nil {
+        log.Println(err)
+    }
+
     if err := b.saveIDF(); err != nil {
         log.Println(err)
     }
@@ -217,7 +202,26 @@ func (b *SearchIndexBuilder) Close() {
     }
 }
 
+func (b *SearchIndexBuilder) createIndices() error {
+    log.Println("indexing db...")
+    defer func(start time.Time) {
+        log.Printf("db indexing done in %v", time.Since(start))
+    }(time.Now())
+
+    if _, err := b.db.Exec("CREATE INDEX idx_term_id_tf_idf_index ON tf_idf_index (term_id);"); err != nil {
+        return err
+    }
+
+    return nil
+}
+
+// TODO should probably be part of tokenizer
 func (b *SearchIndexBuilder) saveTermIds() error {
+    log.Println("saving terms mapping")
+    defer func(start time.Time) {
+        log.Printf("terms mapping saved in %v", time.Since(start))
+    }(time.Now())
+
     tx, err := b.db.Begin()
     if err != nil {
         return err
@@ -235,10 +239,14 @@ func (b *SearchIndexBuilder) saveTermIds() error {
     }
 
     return tx.Commit()
-
 }
 
 func (b *SearchIndexBuilder) saveIDF() error {
+    log.Println("saving idf")
+    defer func(start time.Time) {
+        log.Printf("idf saved in %v", time.Since(start))
+    }(time.Now())
+
     tx, err := b.db.Begin()
     if err != nil {
         return err
