@@ -8,6 +8,105 @@ import (
 	"time"
 )
 
+// inference
+type searchTerm string
+
+type searchIndexResult []SearchResult
+
+func (r searchIndexResult) Len() int {
+    return len(r)
+}
+
+func (r searchIndexResult) Less(i, j int) bool {
+    return r[i].Rank < r[j].Rank
+}
+
+func (r searchIndexResult) Swap(i, j int) {
+    r[i], r[j] = r[j], r[i]
+}
+
+func (r *searchIndexResult) Push(it any) {
+    *r = append(*r, it.(SearchResult))
+}
+
+func (r *searchIndexResult) Pop() any {
+    old := *r
+    n := len(old)
+    x := old[n-1]
+    *r = old[:n-1]
+    return x
+}
+
+func (r searchIndexResult) Top() float64 {
+    return r[0].Rank
+}
+
+type fileIndex struct {
+    name string
+    tf map[searchTerm]float64
+}
+
+type SearchIndex struct {
+    termToFileIndex map[searchTerm][]*fileIndex
+    idf map[searchTerm]float64
+}
+
+// get files which containe one or more terms (returned files are unique)
+func (i *SearchIndex) getFiles(terms []searchTerm) []*fileIndex {
+    out := make([]*fileIndex, 0)
+    tmp := make(map[string]bool, 0)
+    for _, term := range terms {
+        for _, file := range i.termToFileIndex[term] {
+            if !tmp[file.name] {
+                tmp[file.name] = true
+                out = append(out, file)
+            }
+        }
+    }
+    return out
+}
+
+/* SQL equivalent (TO BE REPACED WITH SQL)
+SELECT 
+    f.FileName
+    , SUM(f.TF * IDF) TfIdf
+FROM FileIndex f
+JOIN GlobalIndex g ON g.Term = f.Term
+WHERE f.term in (?...)
+GROUP BY f.FileName
+ORDER BY TfIdf;
+*/
+func (i *SearchIndex) Search(tokens []Token, maxReturn int) searchIndexResult {
+    out := new(searchIndexResult)
+
+    terms := toSeachTerms(tokens)
+    for _, fi := range i.getFiles(terms) {
+        rank := 0.
+        for _, term := range terms {
+            idf := i.idf[term]
+            rank += fi.tf[term] * idf
+        }
+
+        if rank > 0 && (out.Len() <= maxReturn || out.Top() < rank) {
+            heap.Push(out, SearchResult{fi.name, rank})
+        }
+        for out.Len() > maxReturn {
+            heap.Pop(out)
+        }
+    }
+
+    return *out
+}
+
+func toSeachTerms(tokens []Token) []searchTerm {
+    terms := make([]searchTerm, 0, len(tokens))
+    for _, token := range tokens {
+        terms = append(terms, searchTerm(token))
+    }
+    return terms
+}
+
+// build index
 type TfIdf struct {
     FileMap map[string]*FileData `json:"fileMap"`
     Idf map[string]float64 `json:"idf"`
@@ -98,6 +197,12 @@ func (t *TfIdf) Search(tokens []Token, maxResult int) []SearchResult {
     start := time.Now()
     out := new(tfIdfResult)
 
+    // for token in tokens
+    // calculate idf
+    // find files with token
+    // calculate tf of all files
+    // calculate tf-idf
+    // sort
     for fileName, v := range t.FileMap {
         var totalRank = 0.0
         for _, token := range tokens {

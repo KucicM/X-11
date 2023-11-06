@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bufio"
 	"io/fs"
 	"log"
 	"os"
@@ -32,19 +31,17 @@ func BuildIndex(root_dir_path, index_save_path string) (*Trie, *TfIdf) {
 
         log.Printf("Indexing %s %+v", path, d)
 
-        file, err := os.Open(path)
+        bytes, err := os.ReadFile(path)
         if err != nil {
             return err
         }
-        defer file.Close()
 
-        scanner := bufio.NewScanner(file)
-
-        for scanner.Scan() {
-            for _, ngram := range ToNgrams(scanner.Text(), 1, 1) {
-                //trie.Insert(ngram)
-                tfIdf.Insert(path, ngram)
-            }
+        // TODO maybe just use []byte
+        //ngmas := ToNgrams(string(bytes), 1, 1)
+        //tfIdf.Add(path, ngmas)
+        for _, ngram := range ToNgrams(string(bytes), 1, 1) {
+            //trie.Insert(ngram)
+            tfIdf.Insert(path, ngram)
         }
 
         return nil
