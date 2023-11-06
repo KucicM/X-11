@@ -71,21 +71,17 @@ func toSeachTerms(tokens []Token) []searchTerm {
     return terms
 }
 
-// build index
-// take whole document in memory
-// build TF
-// save TF to DB
-// update in memory IDF
-// after all documents save IDF to DB
-
 // add index
-
 type SearchIndexBuilder struct {
     db *sql.DB
 
     // used for IDF
     totalTermCount int
     absTermFreq map[string]int
+
+    // cache mappings
+    nextTermId int
+    termToId map[string]int
 }
 
 func NewSearchIndexBuilder() (*SearchIndexBuilder, error) {
@@ -97,7 +93,7 @@ func NewSearchIndexBuilder() (*SearchIndexBuilder, error) {
     // todo maybe move name to other table to reduce size
     log.Println("createing tf-idf table")
     _, err = db.Exec(`CREATE TABLE IF NOT EXISTS tf_idf_index (
-        term VARCHAR(30)
+        term_id INTEGER
         , tf REAL
         , idf REAL
         , file_id INTEGER
@@ -115,6 +111,14 @@ func NewSearchIndexBuilder() (*SearchIndexBuilder, error) {
         return nil, err
     }
 
+    _, err = db.Exec(`CREATE TABLE IF NOT EXISTS terms (
+        id INTEGER
+        , term VARCHAR(30)
+    );`)
+    if err != nil {
+        return nil, err
+    }
+
     log.Println("truncating tf-idf index")
     _, err = db.Exec("DELETE FROM tf_idf_index;")
     if err != nil {
@@ -127,10 +131,18 @@ func NewSearchIndexBuilder() (*SearchIndexBuilder, error) {
         return nil, err
     }
 
+    log.Println("truncating file data")
+    _, err = db.Exec("DELETE FROM terms;")
+    if err != nil {
+        return nil, err
+    }
+
     return &SearchIndexBuilder{
         db: db, 
         totalTermCount: 0, 
         absTermFreq: make(map[string]int),
+        nextTermId: 1,
+        termToId: make(map[string]int),
     }, nil
 }
 
@@ -166,7 +178,7 @@ func (b *SearchIndexBuilder) AddDocument(file_name, file_path string, document [
         return
     }
 
-    stmt, err := tx.Prepare("INSERT INTO tf_idf_index (term, tf, file_id) VALUES ($1, $2, $3);")
+    stmt, err := tx.Prepare("INSERT INTO tf_idf_index (term_id, tf, file_id) VALUES ($1, $2, $3);")
     if err != nil {
         log.Println(err)
         return 
@@ -175,7 +187,8 @@ func (b *SearchIndexBuilder) AddDocument(file_name, file_path string, document [
 
     for term, freq := range relativeFreq {
         tf := float64(freq) / float64(totalFreq)
-        _, err := stmt.Exec(term, tf, fileId)
+        termId := b.getTermId(term)
+        _, err := stmt.Exec(termId, tf, fileId)
         if err != nil {
             log.Println(err)
         }
@@ -186,30 +199,65 @@ func (b *SearchIndexBuilder) AddDocument(file_name, file_path string, document [
     }
 }
 
+func (b *SearchIndexBuilder) getTermId(term string) int {
+    if _, ok := b.termToId[term]; !ok {
+        b.termToId[term] = b.nextTermId
+        b.nextTermId++
+    }
+    return b.termToId[term]
+}
+
 func (b *SearchIndexBuilder) Close() {
     log.Println("saving idf")
+    if err := b.saveIDF(); err != nil {
+        log.Println(err)
+    }
+
+    if err := b.saveTermIds(); err != nil {
+        log.Println(err)
+    }
+}
+
+func (b *SearchIndexBuilder) saveTermIds() error {
     tx, err := b.db.Begin()
     if err != nil {
-        log.Println(err)
-        return
+        return err
+    }
+
+    stmt, err := tx.Prepare("INSERT INTO terms (id, term_id) VALUES ($1, $2);")
+    if err != nil {
+        return err
+    }
+
+    for term, id := range b.termToId {
+        if _, err := stmt.Exec(id, term); err != nil {
+            return err
+        }
+    }
+
+    return tx.Commit()
+
+}
+
+func (b *SearchIndexBuilder) saveIDF() error {
+    tx, err := b.db.Begin()
+    if err != nil {
+        return err
     }
 
     stmt, err := tx.Prepare("UPDATE tf_idf_index SET idf = $1 WHERE term = $2")
     if err != nil {
-        log.Println(err)
-        return
+        return err
     }
 
     for term, freq := range b.absTermFreq {
         idf := max(1.0, math.Log10(float64(b.totalTermCount) / float64(1 + freq)))
-        _, err := stmt.Exec(term, idf)
-        if err != nil {
-            log.Println(err)
+        if _, err := stmt.Exec(term, idf); err != nil {
+            return err
         }
     }
-    if err = tx.Commit(); err != nil {
-        log.Println(err)
-    }
+
+    return tx.Commit()
 }
 
 type TfIdf struct {
