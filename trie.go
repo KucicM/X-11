@@ -6,14 +6,13 @@ import (
 	"time"
 )
 
-type Prefix []*Token
-var empytToken = Token([]rune{' '})
+type Prefix []Token
 
-func createPrefix(tokens []*Token) Prefix {
-    prefix := make([]*Token, 0, 2 * len(tokens))
+func createPrefix(tokens []Token) Prefix {
+    prefix := make([]Token, 0, 2 * len(tokens))
     prefix = append(prefix, tokens[0])
     for i := 1; i < len(tokens); i++ {
-        prefix = append(prefix, &empytToken)
+        prefix = append(prefix, []rune(" "))
         prefix = append(prefix, tokens[i])
     }
     return prefix
@@ -36,7 +35,7 @@ func (t *Trie) Insert(ngram Ngram) {
     prefix := createPrefix(ngram)
     node := t.root
     for _, token := range prefix {
-        for _, t := range *token {
+        for _, t := range token {
             node = node.next_or_create(t)
         }
     }
@@ -58,13 +57,12 @@ func (t *Trie) PopulateCache(n int) {
     log.Printf("INFO: trie cache population took %v", time.Since(start))
 }
 
-func (t *Trie) Search(tokens []*Token) []Prefix {
+func (t *Trie) Search(tokens []Token) []Prefix {
     prefix := createPrefix(tokens)
     node := t.root
     for i := 0; i < len(prefix) && node != nil; i++ {
-        p := *prefix[i]
-        for j := 0; j < len(p) && node != nil; j++ {
-            node = node.next(p[j])
+        for j := 0; j < len(prefix[i]) && node != nil; j++ {
+            node = node.next(prefix[i][j])
         }
     }
 
