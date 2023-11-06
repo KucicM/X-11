@@ -100,19 +100,32 @@ func NewSearchIndexBuilder() (*SearchIndexBuilder, error) {
         term VARCHAR(30)
         , tf REAL
         , idf REAL
-        , file_name VARCHAR(255)
+        , file_id INTEGER
+    );`)
+    if err != nil {
+        return nil, err
+    }
+
+    _, err = db.Exec(`CREATE TABLE IF NOT EXISTS files (
+        id INTEGER PRIMARY KEY
+        , file_name varchar(255)
+        , file_path varchar(255)
     );`)
     if err != nil {
         return nil, err
     }
 
     log.Println("truncating tf-idf index")
-    /*
-    _, err = db.Exec("TRUNCATE TABLE tf_idf_index;")
+    _, err = db.Exec("DELETE FROM tf_idf_index;")
     if err != nil {
         return nil, err
     }
-    */
+
+    log.Println("truncating file data")
+    _, err = db.Exec("DELETE FROM files;")
+    if err != nil {
+        return nil, err
+    }
 
     return &SearchIndexBuilder{
         db: db, 
@@ -121,7 +134,7 @@ func NewSearchIndexBuilder() (*SearchIndexBuilder, error) {
     }, nil
 }
 
-func (b *SearchIndexBuilder) AddDocument(name string, document []Token) {
+func (b *SearchIndexBuilder) AddDocument(file_name, file_path string, document []Token) {
     relativeFreq := make(map[string]int)
     for _, token := range document {
         relativeFreq[string(token)] += 1
@@ -142,7 +155,18 @@ func (b *SearchIndexBuilder) AddDocument(name string, document []Token) {
         return 
     }
 
-    stmt, err := tx.Prepare("INSERT INTO tf_idf_index (term, tf, file_name) VALUES ($1, $2, $3);")
+    res, err := tx.Exec("INSERT INTO files (file_name, file_path) VALUES ($1, $2)", file_name, file_path)
+    if err != nil {
+        log.Println(err)
+        return
+    }
+    fileId, err := res.LastInsertId()
+    if err != nil {
+        log.Println(err)
+        return
+    }
+
+    stmt, err := tx.Prepare("INSERT INTO tf_idf_index (term, tf, file_id) VALUES ($1, $2, $3);")
     if err != nil {
         log.Println(err)
         return 
@@ -151,7 +175,7 @@ func (b *SearchIndexBuilder) AddDocument(name string, document []Token) {
 
     for term, freq := range relativeFreq {
         tf := float64(freq) / float64(totalFreq)
-        _, err := stmt.Exec(term, tf, name)
+        _, err := stmt.Exec(term, tf, fileId)
         if err != nil {
             log.Println(err)
         }

@@ -42,7 +42,7 @@ func BuildIndex(root_dir_path, index_save_path string) (*Trie, *SearchIndex) {
 
         // TODO maybe just use []byte
         tokens := Tokenize(string(bytes))
-        searchIdxBuilder.AddDocument(path, tokens)
+        searchIdxBuilder.AddDocument(path, d.Name(), tokens)
 
         //tfIdf.Add(path, ngmas)
         /*
