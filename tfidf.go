@@ -44,8 +44,6 @@ func NewSeachIndex() (*SearchIndex, error){
     }
     rows.Close()
 
-
-
     return &SearchIndex{db: db, termToId: termToId}, nil
 }
 
@@ -101,7 +99,6 @@ func toSeachTerms(tokens []Token) []string {
     return terms
 }
 
-
 // creating index
 var initQueries = []string{
     "CREATE TABLE IF NOT EXISTS tf_idf_index (term_id INTEGER, tf REAL, idf REAL, file_id INTEGER);",
@@ -111,6 +108,8 @@ var initQueries = []string{
     "DELETE FROM files;",
     "DELETE FROM terms;",
     "DROP INDEX IF EXISTS idx_term_id_tf_idf_index;",
+    "PRAGMA synchronous = OFF;",
+    "PRAGMA journal_mode = MEMORY;",
 }
 type SearchIndexBuilder struct {
     db *sql.DB

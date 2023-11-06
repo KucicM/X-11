@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-const rebuildIndex = false
+const rebuildIndex = true
 
 func BuildIndex(root_dir_path, index_save_path string) (*Trie, *SearchIndex) {
     trie := NewTrie()
