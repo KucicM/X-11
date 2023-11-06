@@ -10,13 +10,13 @@ type Trie struct {
 
 // todo store trie to disk maybe like key value
 // also building trie should maybe use disk as well
-func BuildTrie(words chan string, topNcache int) *Trie {
+func BuildTrie(words chan Token, topNcache int) *Trie {
     trie := &Trie{root: newTrieNode()}
     var node *trieNode
 
     for word := range words {
         node = trie.root
-        for _, w := range []byte(word) {
+        for _, w := range word {
             node = node.next_or_create(w)
         }
         node.markFinal(word)
@@ -38,31 +38,31 @@ func (t *Trie) populateCache(n int) {
     t.root.populateCache(n)
 }
 
-func (t *Trie) finaAll(prefix string) []string {
+func (t *Trie) finaAll(prefix Token) []Token {
     node := t.root
     for i := 0; i < len(prefix) && node != nil; i++ {
         node = node.next(prefix[i])
     }
 
     if node == nil {
-        return []string{}
+        return []Token{}
     }
     return node.topN()
 }
 
-type wordFreq struct {
+type tokenFreq struct {
     freq uint
-    word string
+    token Token
 }
 
 type trieNode struct {
-    children map[byte]*trieNode
-    word wordFreq
-    topNWords []*wordFreq
+    children map[rune]*trieNode
+    word tokenFreq
+    topNWords []*tokenFreq
 }
 
-func (n *trieNode) populateCache(topN int) []*wordFreq {
-    n.topNWords = make([]*wordFreq, 0, len(n.children))
+func (n *trieNode) populateCache(topN int) []*tokenFreq {
+    n.topNWords = make([]*tokenFreq, 0, len(n.children))
 
     if len(n.children) == 0 && n.word.freq == 0 {
         return n.topNWords
@@ -86,10 +86,10 @@ func (n *trieNode) populateCache(topN int) []*wordFreq {
 }
 
 func newTrieNode() *trieNode {
-    return &trieNode{children: make(map[byte]*trieNode), word: wordFreq{}}
+    return &trieNode{children: make(map[rune]*trieNode), word: tokenFreq{}}
 }
 
-func (n *trieNode) next_or_create(b byte) *trieNode {
+func (n *trieNode) next_or_create(b rune) *trieNode {
     if val, ok := n.children[b]; ok {
         return val
     }
@@ -98,19 +98,19 @@ func (n *trieNode) next_or_create(b byte) *trieNode {
     return val
 }
 
-func (n *trieNode) next(b byte) *trieNode {
+func (n *trieNode) next(b rune) *trieNode {
     return n.children[b]
 }
 
-func (n *trieNode) markFinal(word string) {
+func (n *trieNode) markFinal(token Token) {
     n.word.freq += 1
-    n.word.word = word
+    n.word.token = token
 }
 
-func (n *trieNode) topN() []string {
-    ret := make([]string, 0, len(n.topNWords))
+func (n *trieNode) topN() []Token {
+    ret := make([]Token, 0, len(n.topNWords))
     for _, w := range n.topNWords {
-        ret = append(ret, w.word)
+        ret = append(ret, w.token)
     }
     return ret
 }
