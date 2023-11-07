@@ -274,14 +274,7 @@ func (m *termMapper) Save() {
     db := sqlx.MustOpen("sqlite3", "terms.db")
     defer db.Close()
 
-    db.MustExec("CREATE TABLE IF NOT EXISTS terms (id INTEGER, term VARCHAR(30));")
-    db.MustExec("DELETE FROM terms")
-    db.MustExec("PRAGMA synchronous = OFF;")
-    db.MustExec("PRAGMA journal_mode = MEMORY;")
-
     tx := db.MustBegin()
-
-
     stmt, err := tx.Preparex("INSERT INTO terms (id, term) VALUES ($1, $2);")
     if err != nil {
         log.Fatalf("ERROR: failed to create prepare %s", err)
