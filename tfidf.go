@@ -159,6 +159,7 @@ func (b *SearchIndexBuilder) Close() {
     log.Println("saving cached values")
     b.createIndices()
     b.saveIDF()
+    b.vacuum()
     b.mapper.Save()
 }
 
@@ -192,6 +193,10 @@ func (b *SearchIndexBuilder) saveIDF() {
     if err := tx.Commit(); err != nil {
         log.Fatalf("ERROR: failed to commit idf save %s", err)
     }
+}
+
+func (b *SearchIndexBuilder) vacuum() {
+    b.db.MustExec("VACUUM;")
 }
 
 // TODO: move this part to lexer
