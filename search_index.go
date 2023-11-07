@@ -16,11 +16,9 @@ func BuildIndex(root_dir_path, index_save_path string) (*Trie, *SearchIndex) {
     if rebuildIndex {
         log.Println("building index...")
         start := time.Now()
-        searchIdxBuilder, err := NewSearchIndexBuilder()
-        if err != nil {
-            log.Fatal(err)
-        }
-        filepath.WalkDir(root_dir_path, func(path string, d fs.DirEntry, err error) error {
+        searchIdxBuilder := NewSearchIndexBuilder()
+
+        _ = filepath.WalkDir(root_dir_path, func(path string, d fs.DirEntry, err error) error {
             if err != nil {
                 return err
             }
@@ -41,8 +39,9 @@ func BuildIndex(root_dir_path, index_save_path string) (*Trie, *SearchIndex) {
             }
 
             // TODO maybe just use []byte
-            tokens := Tokenize(string(bytes))
-            searchIdxBuilder.AddDocument(d.Name(), path, tokens)
+            //tokens := Tokenize(string(bytes))
+            strTokens := StrTokenize(string(bytes))
+            searchIdxBuilder.AddDocument(d.Name(), path, strTokens)
 
             //tfIdf.Add(path, ngmas)
             /*
@@ -60,10 +59,7 @@ func BuildIndex(root_dir_path, index_save_path string) (*Trie, *SearchIndex) {
         saveIndex(trie, searchIdxBuilder, index_save_path)
     }
 
-    searchIndex, err := NewSeachIndex()
-    if err != nil {
-        log.Fatalln(err)
-    }
+    searchIndex := NewSeachIndex()
 
     return trie, searchIndex
 }

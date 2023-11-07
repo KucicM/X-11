@@ -20,6 +20,15 @@ func (t Token) String() string {
 }
 type source []rune
 
+func StrTokenize(content string) []string {
+    tokens := Tokenize(content)
+    out := make([]string, 0, len(tokens))
+    for _, token := range tokens {
+        out = append(out, string(token))
+    }
+    return out
+}
+
 func ToNgrams(content string, nMin, nMax int) []Ngram {
     tokens := Tokenize(content)
 

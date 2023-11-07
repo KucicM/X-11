@@ -15,8 +15,8 @@ type SuggestionResult struct {
 }
 
 type SearchResult struct {
-    Title string
-    Rank float64
+    Title string `db:"file_name"`
+    Rank float64 `db:"rank"`
 }
 
 var trie *Trie
@@ -78,7 +78,11 @@ func searchHandler(w http.ResponseWriter, r *http.Request) {
         return
     }
 
-    res := searchIndex.Search(Tokenize(str), 20)
+    res, err := searchIndex.Search(StrTokenize(str), 20)
+    if err != nil {
+        w.WriteHeader(http.StatusInternalServerError)
+        return
+    }
     tmpl := template.Must(template.ParseFiles("./templates/search_results.html"))
     data := map[string][]SearchResult{
         "Results": res,

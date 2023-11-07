@@ -1,8 +1,6 @@
 package main
 
 import (
-	"database/sql"
-	"fmt"
 	"log"
 	"math"
 	"time"
@@ -12,280 +10,286 @@ import (
 )
 
 // inference
-type searchTerm string
-
 type SearchIndex struct {
-    db *sqlx.DB // make connection pool
-
-    termToId map[string]int
+    mapper *termMapper
 }
 
-func NewSeachIndex() (*SearchIndex, error){
-    db, err := sqlx.Open("sqlite3", "test.db")
-    if err != nil {
-        return nil, err
-    }
-
-    // load termIds
-    termToId := make(map[string]int)
-    rows, err := db.Query("SELECT id, term FROM terms;")
-    if err != nil {
-        return nil, err
-    }
-
-    for rows.Next() {
-        var id int
-        var term string
-        if err := rows.Scan(&id, &term); err != nil {
-            log.Println(err)
-        } else {
-            termToId[term] = id
-        }
-    }
-    rows.Close()
-
-    return &SearchIndex{db: db, termToId: termToId}, nil
+func NewSeachIndex() *SearchIndex{
+    mapper := LoadMapper()
+    return &SearchIndex{mapper: mapper}
 }
 
-// maybe seperate TF and IDF in two queries per term and cache most common used terms?
-func (i *SearchIndex) Search(tokens []Token, maxReturn int) []SearchResult {
-    out := make([]SearchResult, 0)
+// maybe precompute whole table?
+func (i *SearchIndex) Search(tokens []string, maxReturn int) ([]SearchResult, error) {
+    defer func(start time.Time) {
+        log.Printf("INFO: %d terms in %v", len(tokens), time.Since(start))
+    }(time.Now())
 
-    term_ids := make([]int, 0)
-    for _, term := range toSeachTerms(tokens) {
-        if id, ok := i.termToId[term]; ok {
-            term_ids = append(term_ids, id)
-        }
+    termIds := i.mapper.precomputedIds(tokens)
+    if len(termIds) == 0 {
+        return []SearchResult{}, nil
     }
 
-    if len(term_ids) == 0 {
-        return []SearchResult{}
-    }
+   db, err := sqlx.Open("sqlite3", "test.db?mode=ro")
+   if err != nil {
+       return nil, err
+   }
+   defer db.Close()
 
-    q := `SELECT f.file_name, SUM(i.tf * i.idf) tf_idf
+    q := `SELECT f.file_name, SUM(i.tf * i.idf) rank
     FROM tf_idf_index i
     JOIN files f ON f.id = i.file_id
     WHERE i.term_id IN (?)
     GROUP BY i.file_id
-    HAVING tf_idf > 0
-    ORDER BY tf_idf DESC;`
-    query, args, err := sqlx.In(q, term_ids)
+    HAVING rank > 0
+    ORDER BY rank DESC
+    LIMIT 20;`
+    query, args, err := sqlx.In(q, termIds)
     if err != nil {
-        log.Println(err)
+        return nil, err
     }
 
-    rows, err := i.db.Query(query, args...)
-    if err != nil {
-        log.Println(err)
+    var out []SearchResult
+    if err := db.Select(&out, query, args...); err != err {
+        return nil, err
     }
 
-    for rows.Next() {
-        var row SearchResult
-        if err := rows.Scan(&row.Title, &row.Rank); err != nil {
-            log.Println(err)
-        }
-        out = append(out, row)
-    }
-    rows.Close()
-
-    return out
-}
-
-func toSeachTerms(tokens []Token) []string {
-    terms := make([]string, 0, len(tokens))
-    for _, token := range tokens {
-        terms = append(terms, string(token))
-    }
-    return terms
+    return out, nil
 }
 
 // creating index
-var initQueries = []string{
-    "CREATE TABLE IF NOT EXISTS tf_idf_index (term_id INTEGER, tf REAL, idf REAL, file_id INTEGER);",
-    "CREATE TABLE IF NOT EXISTS files (id INTEGER PRIMARY KEY, file_name varchar(255), file_path varchar(255));",
-    "CREATE TABLE IF NOT EXISTS terms (id INTEGER, term VARCHAR(30));",
-    "DELETE FROM tf_idf_index;",
-    "DELETE FROM files;",
-    "DELETE FROM terms;",
-    "DROP INDEX IF EXISTS idx_term_id_tf_idf_index;",
-    "PRAGMA synchronous = OFF;",
-    "PRAGMA journal_mode = MEMORY;",
+type idf struct {
+    count int
+    termIdFreq map[int]int
 }
+
+func (i *idf) update(relativeFreq map[int]int) {
+    for k, v := range relativeFreq {
+        i.termIdFreq[k] += v
+        i.count += v
+    }
+}
+
+func (i *idf) get() map[int]float64 {
+    out := make(map[int]float64)
+    for termId, freq := range i.termIdFreq {
+        out[termId] = max(1.0, math.Log10(float64(i.count) / float64(1 + freq)))
+    }
+    return out
+}
+
 type SearchIndexBuilder struct {
-    db *sql.DB
+    db *sqlx.DB
+    idf *idf
 
-    // used for IDF
-    totalTermCount int
-    absTermFreq map[string]int
-
-    // cache mappings
-    nextTermId int
-    termToId map[string]int
+    // cache mappings TODO remove
+    mapper *termMapper
 }
 
-func NewSearchIndexBuilder() (*SearchIndexBuilder, error) {
-    db, err := sql.Open("sqlite3", "test.db")
-    if err != nil {
-        return nil, err
+func NewSearchIndexBuilder() *SearchIndexBuilder {
+    db := sqlx.MustOpen("sqlite3", "test.db")
+
+    var initQueries = []string{
+        "CREATE TABLE IF NOT EXISTS tf_idf_index (term_id INTEGER, tf REAL, idf REAL, file_id INTEGER);",
+        "CREATE TABLE IF NOT EXISTS files (id INTEGER PRIMARY KEY, file_name varchar(255), file_path varchar(255));",
+        "DELETE FROM tf_idf_index;",
+        "DELETE FROM files;",
+        "DROP INDEX IF EXISTS idx_term_id_tf_idf_index;",
+        "PRAGMA synchronous = OFF;",
+        "PRAGMA journal_mode = MEMORY;",
     }
 
     for _, query := range initQueries {
         if _, err := db.Exec(query); err != nil {
             db.Close()
-            return nil, fmt.Errorf("ERROR: running query `%s` resulted in error %s", query, err)
+            log.Fatalf("ERROR: exec on query '%s' failes %s", query, err)
         }
     }
 
     return &SearchIndexBuilder{
         db: db, 
-        totalTermCount: 0, 
-        absTermFreq: make(map[string]int),
-        nextTermId: 1,
-        termToId: make(map[string]int),
-    }, nil
+        idf: &idf{count: 0, termIdFreq: make(map[int]int)},
+        mapper: BuildMapper(),
+    }
 }
 
-func (b *SearchIndexBuilder) AddDocument(file_name, file_path string, document []Token) {
-    relativeFreq := make(map[string]int)
-    for _, token := range document {
-        relativeFreq[string(token)] += 1
-    }
+func (b *SearchIndexBuilder) AddDocument(file_name, file_path string, document []string) {
+    termIds := b.mapper.getMany(document)
+    relativeFreq := computeRelativeFrequency(termIds)
 
-    // idf part
-    totalFreq := 0
-    for k, v := range relativeFreq {
-        totalFreq += v
-        b.absTermFreq[k] += v
-    }
-    b.totalTermCount += totalFreq
+    b.idf.update(relativeFreq)
+    b.save(file_name, file_path, relativeFreq, len(document))
+}
 
-    // tf part
-    tx, err := b.db.Begin()
-    if err != nil {
-        log.Println(err)
-        return 
+func computeRelativeFrequency(termIds []int) map[int]int {
+    relativeFreq := make(map[int]int)
+    for _, termId := range termIds {
+        relativeFreq[termId] += 1
     }
+    return relativeFreq
+}
 
-    res, err := tx.Exec("INSERT INTO files (file_name, file_path) VALUES ($1, $2)", file_name, file_path)
-    if err != nil {
-        log.Println(err)
-        return
-    }
+func (b *SearchIndexBuilder) save(file_name, file_path string, termIdFreq map[int]int, tokenCount int) {
+    tx := b.db.MustBegin()
+    res := tx.MustExec("INSERT INTO files (file_name, file_path) VALUES ($1, $2)", file_name, file_path)
     fileId, err := res.LastInsertId()
     if err != nil {
-        log.Println(err)
-        return
+        log.Fatalf("ERROR: failed to get last id %s", err)
     }
 
-    stmt, err := tx.Prepare("INSERT INTO tf_idf_index (term_id, tf, file_id) VALUES ($1, $2, $3);")
+
+    stmt, err := tx.Preparex("INSERT INTO tf_idf_index (term_id, tf, file_id) VALUES ($1, $2, $3);")
     if err != nil {
-        log.Println(err)
-        return 
+        log.Fatalf("ERROR: failed to prepare stmt %s", err)
     }
     defer stmt.Close()
 
-    for term, freq := range relativeFreq {
-        tf := float64(freq) / float64(totalFreq)
-        termId := b.getTermId(term)
-        _, err := stmt.Exec(termId, tf, fileId)
-        if err != nil {
-            log.Println(err)
-        }
+    for termId, freq := range termIdFreq {
+        tf := float64(freq) / float64(tokenCount)
+        _ = stmt.MustExec(termId, tf, fileId)
     }
 
     if err = tx.Commit(); err != nil {
-        log.Println(err)
+        log.Fatalf("ERROR: cannot commit %s", err)
     }
-}
-
-func (b *SearchIndexBuilder) getTermId(term string) int {
-    if _, ok := b.termToId[term]; !ok {
-        b.termToId[term] = b.nextTermId
-        b.nextTermId++
-    }
-    return b.termToId[term]
 }
 
 func (b *SearchIndexBuilder) Close() {
     defer b.db.Close()
     log.Println("saving cached values")
-
-    if err := b.createIndices(); err != nil {
-        log.Println(err)
-    }
-
-    if err := b.saveIDF(); err != nil {
-        log.Println(err)
-    }
-
-    if err := b.saveTermIds(); err != nil {
-        log.Println(err)
-    }
+    b.createIndices()
+    b.saveIDF()
 }
 
-func (b *SearchIndexBuilder) createIndices() error {
+func (b *SearchIndexBuilder) createIndices() {
     log.Println("indexing db...")
     defer func(start time.Time) {
         log.Printf("db indexing done in %v", time.Since(start))
     }(time.Now())
 
-    if _, err := b.db.Exec("CREATE INDEX idx_term_id_tf_idf_index ON tf_idf_index (term_id);"); err != nil {
-        return err
-    }
-
-    return nil
+    b.db.MustExec("CREATE INDEX idx_term_id_tf_idf_index ON tf_idf_index (term_id);")
 }
 
-// TODO should probably be part of tokenizer
-func (b *SearchIndexBuilder) saveTermIds() error {
-    log.Println("saving terms mapping")
-    defer func(start time.Time) {
-        log.Printf("terms mapping saved in %v", time.Since(start))
-    }(time.Now())
-
-    tx, err := b.db.Begin()
-    if err != nil {
-        return err
-    }
-
-    stmt, err := tx.Prepare("INSERT INTO terms (id, term) VALUES ($1, $2);")
-    if err != nil {
-        return err
-    }
-
-    for term, id := range b.termToId {
-        if _, err := stmt.Exec(id, term); err != nil {
-            return err
-        }
-    }
-
-    return tx.Commit()
-}
-
-func (b *SearchIndexBuilder) saveIDF() error {
+func (b *SearchIndexBuilder) saveIDF() {
     log.Println("saving idf")
     defer func(start time.Time) {
         log.Printf("idf saved in %v", time.Since(start))
     }(time.Now())
 
-    tx, err := b.db.Begin()
+    tx := b.db.MustBegin()
+
+    stmt, err := tx.Preparex("UPDATE tf_idf_index SET idf = $1 WHERE term_id = $2")
     if err != nil {
-        return err
+        log.Fatalf("ERROR: failed to create prepared statment for idf save %s", err)
+    }
+    defer stmt.Close()
+
+    for termId, idf := range b.idf.get() {
+        _ = stmt.MustExec(idf, termId)
     }
 
-    stmt, err := tx.Prepare("UPDATE tf_idf_index SET idf = $1 WHERE term_id = $2")
-    if err != nil {
-        return err
+    if err := tx.Commit(); err != nil {
+        log.Fatalf("ERROR: failed to commit idf save %s", err)
     }
-
-    for term, freq := range b.absTermFreq {
-        idf := max(1.0, math.Log10(float64(b.totalTermCount) / float64(1 + freq)))
-        termId := b.getTermId(term)
-        if _, err := stmt.Exec(idf, termId); err != nil {
-            return err
-        }
-    }
-
-    return tx.Commit()
 }
 
+// TODO: move this part to lexer
+type termMapper struct {
+    id int
+    termToId map[string]int
+    idToTerm map[int]string
+}
+
+func LoadMapper() *termMapper {
+    db := sqlx.MustOpen("sqlite3", "terms.db")
+    defer db.Close()
+
+    termToId := make(map[string]int)
+    idToTerm := make(map[int]string)
+    rows, err := db.Query("SELECT id, term FROM terms;")
+    if err != nil {
+        log.Fatalf("ERROR: cannot query terms %s", err)
+    }
+    defer rows.Close()
+
+    for rows.Next() {
+        var id int
+        var term string
+        if err := rows.Scan(&id, &term); err != nil {
+            log.Fatalf("ERROR: cannot scan term row %s", err)
+        }
+        termToId[term] = id
+        idToTerm[id] = term
+    }
+
+    return &termMapper{termToId: termToId, idToTerm: idToTerm}
+}
+
+func BuildMapper() *termMapper {
+    db := sqlx.MustOpen("sqlite3", "terms.db")
+    defer db.Close()
+
+    // ddl
+    db.MustExec("CREATE TABLE IF NOT EXISTS terms (id INTEGER, term VARCHAR(30));")
+    db.MustExec("DELETE FROM terms")
+    db.MustExec("PRAGMA synchronous = OFF;")
+    db.MustExec("PRAGMA journal_mode = MEMORY;")
+
+    return &termMapper{id: 1, termToId: make(map[string]int), idToTerm: make(map[int]string)}
+}
+
+func (m * termMapper) get(term string) int {
+    if _, ok := m.termToId[term]; !ok {
+        m.id += 1
+        m.termToId[term] = m.id
+    }
+    return m.termToId[term]
+}
+
+func (m *termMapper) getMany(terms []string) []int {
+    out := make([]int, 0, len(terms))
+    for _, term := range terms {
+        out = append(out, m.get(term))
+    }
+    return out
+}
+
+func (m *termMapper) precomputedIds(terms []string) []int {
+    out := make([]int, 0, len(terms))
+    for _, term := range terms {
+        if id, ok := m.termToId[term]; ok {
+            out = append(out, id)
+        }
+    }
+    return out
+}
+
+func (m *termMapper) Save() {
+    log.Println("saving terms mapping")
+    defer func(start time.Time) {
+        log.Printf("terms mapping saved in %v", time.Since(start))
+    }(time.Now())
+
+    db := sqlx.MustOpen("sqlite3", "terms.db")
+    defer db.Close()
+
+    tx := db.MustBegin()
+
+    tx.MustExec("CREATE TABLE IF NOT EXISTS terms (id INTEGER, term VARCHAR(30));")
+    tx.MustExec("DELETE FROM terms")
+    tx.MustExec("PRAGMA synchronous = OFF;")
+    tx.MustExec("PRAGMA journal_mode = MEMORY;")
+
+    stmt, err := tx.Preparex("INSERT INTO terms (id, term) VALUES ($1, $2);")
+    if err != nil {
+        log.Fatalf("ERROR: failed to create prepare %s", err)
+    }
+
+    for term, id := range m.termToId {
+        _ = stmt.MustExec(id, term)
+    }
+
+    if err := tx.Commit(); err != nil {
+        log.Fatalf("ERROR: failed to commit to term db")
+    }
+}
