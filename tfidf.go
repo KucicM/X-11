@@ -114,7 +114,7 @@ func NewSearchIndexBuilder() *SearchIndexBuilder {
 }
 
 func (b *SearchIndexBuilder) AddDocument(file_name, file_path string, document []string) {
-    termIds := b.mapper.getMany(document)
+    termIds := b.mapper.computeIds(document)
     relativeFreq := computeRelativeFrequency(termIds)
 
     b.idf.update(relativeFreq)
@@ -159,6 +159,7 @@ func (b *SearchIndexBuilder) Close() {
     log.Println("saving cached values")
     b.createIndices()
     b.saveIDF()
+    b.mapper.Save()
 }
 
 func (b *SearchIndexBuilder) createIndices() {
@@ -238,7 +239,7 @@ func BuildMapper() *termMapper {
     return &termMapper{id: 1, termToId: make(map[string]int), idToTerm: make(map[int]string)}
 }
 
-func (m * termMapper) get(term string) int {
+func (m * termMapper) computeId(term string) int {
     if _, ok := m.termToId[term]; !ok {
         m.id += 1
         m.termToId[term] = m.id
@@ -246,10 +247,10 @@ func (m * termMapper) get(term string) int {
     return m.termToId[term]
 }
 
-func (m *termMapper) getMany(terms []string) []int {
+func (m *termMapper) computeIds(terms []string) []int {
     out := make([]int, 0, len(terms))
     for _, term := range terms {
-        out = append(out, m.get(term))
+        out = append(out, m.computeId(term))
     }
     return out
 }
