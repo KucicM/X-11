@@ -1,49 +1,98 @@
 package main
 
-import (
-	"strings"
-	"unicode"
-)
-type Ngram []Token
+import "unicode"
 
-func (n Ngram) Size() int {
-    total := 0
-    for _, t := range n {
-        total += len(t)
+/*
+input is []byte (document) which is converted into Tokens.
+Tokens have two parts:
+- encoeded representation (int) and []rune
+
+Tokenize -> produces individual tokens
+Gramify -> produce n-gram tokens (multiple tokens are merged into single token)
+*/
+
+type Token struct {
+    encoded int
+    runes []rune
+}
+
+type document []rune
+func (d document) len() int {
+    return len(d)
+}
+
+func (d document) getNext() (document, []rune) {
+    return nil, nil
+}
+
+func (d document) next() (document, []rune) {
+    for len(d) > 0 && unicode.IsSpace(d[0]) {
+        d = d[1:]
     }
-    return total
+
+    if len(d) == 0 {
+        return d, nil
+    }
+
+    if unicode.IsPunct(d[0]) {
+        return d[1:], nil
+    }
+
+    if unicode.IsDigit(d[0]) {
+        return d.takeUntil(unicode.IsDigit)
+    }
+
+    if unicode.IsLetter(d[0]) {
+        return d.takeUntil(unicode.IsLetter)
+    }
+
+    return d.take(1)
 }
 
-type Token []rune
-func (t Token) String() string {
-    return string(t)
+func (d document) takeUntil(fn func(rune) bool) (document, []rune) {
+    n := 0
+    for n < len(d) && fn(d[n]) {
+        n++
+    }
+    return d.take(n)
 }
-type source []rune
 
-func StrTokenize(content string) []string {
+func  (d document) take(n int) (document, []rune) {
+    for i := 0; i < n; i++ {
+        d[i] = unicode.ToLower(d[i])
+    }
+    ret := d[:n]
+    d = d[n:]
+    return d, ret
+}
+
+func Tokenize(content []byte) []Token {
+    doc := document(string(content))
+    tokens := make([]Token, 0)
+    for doc.len() > 0 {
+        var token []rune
+        if doc, token = doc.getNext(); token != nil && len(token) > 0 {
+            tokens = append(tokens, )
+        }
+    }
+    return tokens
+}
+
+func Gramify(content []byte, minN, maxN int) []Token {
     tokens := Tokenize(content)
-    out := make([]string, 0, len(tokens))
-    for _, token := range tokens {
-        out = append(out, string(token))
-    }
-    return out
-}
 
-func ToNgrams(content string, nMin, nMax int) []Ngram {
-    tokens := Tokenize(content)
-
-    if len(tokens) < nMin {
-        return make([]Ngram, 0)
+    if len(tokens) < minN {
+        return make([]Token, 0)
     }
 
-    out := make([]Ngram, 0, len(tokens))
-    for l, h := 0, nMin; h <= len(tokens); {
-        if (h - l) > nMax {
+    out := make([]Token, 0, len(tokens))
+    for l, h := 0, minN; h <= len(tokens); {
+        if (h - l) > maxN {
             l += 1
         }
 
-        for ll := l; (h - ll) >= nMin; ll++ {
-            out = append(out, tokens[ll:h])
+        for ll := l; (h - ll) >= minN; ll++ {
+            out = append(out, mergeTokens(tokens[ll:h]))
         }
 
         if h <= len(tokens) {
@@ -54,66 +103,16 @@ func ToNgrams(content string, nMin, nMax int) []Ngram {
     return out
 }
 
-func Tokenize(content string) []Token {
-    out := make([]Token, 0)
-
-    src := source(content)
-    for len(src) > 0 {
-        var token Token
-        src, token = src.next()
-        if len(token) > 0 {
-            out = append(out, token)
-        }
+func mergeTokens(tokens []Token) Token {
+    total := 0
+    for i := 0; i < len(tokens); i++ {
+        total += len(tokens[i].runes) + 1
     }
 
-    return out
+    runes := make([]rune, total)
+    for i := 0; i < len(tokens); i++ {
+        runes = append(runes, tokens[i].runes...)
+    }
+    return // TODO
 }
 
-func UnTokenize(tokens []Token) string {
-    strs := make([]string, 0, len(tokens))
-    for _, token := range tokens {
-        strs = append(strs, string(token))
-    }
-    return strings.Join(strs, "")
-}
-
-func (src source) next() (source, Token) {
-    for len(src) > 0 && unicode.IsSpace(src[0]) {
-        src = src[1:]
-    }
-
-    if len(src) == 0 {
-        return src, Token{}
-    }
-
-    if unicode.IsPunct(src[0]) {
-        return src[1:], Token{}
-    }
-
-    if unicode.IsDigit(src[0]) {
-        return src.takeUntil(unicode.IsDigit)
-    }
-
-    if unicode.IsLetter(src[0]) {
-        return src.takeUntil(unicode.IsLetter)
-    }
-
-    return src.take(1)
-}
-
-func (src source)takeUntil(fn func(rune) bool) (source, Token) {
-    n := 0
-    for n < len(src) && fn(src[n]) {
-        n++
-    }
-    return src.take(n)
-}
-
-func  (src source) take(n int) (source, Token) {
-    for i := 0; i < n; i++ {
-        src[i] = unicode.ToLower(src[i])
-    }
-    ret := src[:n]
-    src = src[n:]
-    return src, Token(ret)
-}
