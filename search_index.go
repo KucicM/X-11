@@ -29,8 +29,7 @@ func BuildIndex(root_dir_path, index_save_path string) (*Trie, *SearchIndex) {
                 return nil
             }
 
-            parts := strings.Split(path, ".")
-            if parts[len(parts) - 1] != "txt" {
+            if !strings.HasSuffix(path, ".txt") {
                 return nil
             }
 
