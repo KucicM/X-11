@@ -9,20 +9,48 @@
         <meta name    = "color-scheme" content = "light dark"/>
         <link rel="stylesheet" href="assets/style.css">
         <script src="https://unpkg.com/htmx.org@1.9.6"></script>
+        <script src="https://unpkg.com/hyperscript.org@0.9.12"></script>
     </head>
 
     <body>
+        <p> 
+            _ = "on keyup add .selected to <li/> in #htmx when it's innerHTML contains my value then log x"
+</p>
         <form hx-get="/search" hx-target="#search-results">
             <input id="search-bar" autocomplete="off"
-                name="query"
-                hx-get="/autocomplete"
-                hx-trigger="keyup changed delay:10ms"
-                hx-target="#autocomplete"
-                list="autocomplete">
+            name="query"
+            hx-get="/autocomplete"
+            hx-trigger="keyup changed delay:10ms"
+            hx-target="#autocomplete"
+            list="autocomplete"
+            >
         </form>
         <datalist id="autocomplete" hx-swap-oob="true"></datalist>
 
         <div id="search-results"></div>
+
+        <ul id="htmx" 
+            _ = "on keydown[keyCode==40] from #search-bar set @next to 1
+            on keydown[keyCode==38] from #search-bar set @next to -1
+
+            on mutation of @next
+            js return document.getElementById('htmx').children.length end then set :cnt to it
+            then if no $currentIdx and @next as Int == 1 
+                set $currentIdx to -1
+            else if no $currentIdx and @next as Int == -1
+                set $currentIdx to :cnt
+            else
+                toggle .selected on #{$currentIdx} in me
+            end
+            then set $currentIdx to (($currentIdx as Int + @next as Int) + :cnt) mod :cnt
+            then toggle .selected on #{$currentIdx} in me
+            ">
+            <li id="0">1</li>
+            <li id="1">2</li>
+            <li id="2">3</li>
+            <li id="3">4</li>
+        </ul>
+
     </body>
 </html>
 
