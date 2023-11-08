@@ -1,0 +1,15 @@
+{
+  "assets-path": "./assets/",
+  "templates-path": "./templates/",
+  "port": 7323,
+  "results-per-page": 20,
+  "search-index": {
+      "tokenizer": {
+          "db-path": "./local/dbs/tokens.db",
+          "build": false
+      },
+      "full-text-index": {
+          "db-file-path": "./local/dbs/fti.db"
+      }
+  }
+}

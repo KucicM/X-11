@@ -1,0 +1,10 @@
+{
+  "source-folder": "./local/source/",
+  "full-text-index": {
+    "db-file-path": "./local/dbs/fti.db"
+  },
+  "tokenizer": {
+      "db-path": "./local/dbs/tokens.db",
+      "build": true
+  }
+}

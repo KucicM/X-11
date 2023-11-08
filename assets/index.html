@@ -15,12 +15,12 @@
         <form hx-get="/search" hx-target="#search-results">
             <input id="search-bar" autocomplete="off"
                 name="query"
-                hx-get="/suggest" 
+                hx-get="/autocomplete"
                 hx-trigger="keyup changed delay:10ms"
-                hx-target="#search-suggestions"
-                list="search-suggestions">
+                hx-target="#autocomplete"
+                list="autocomplete">
         </form>
-        <datalist id="search-suggestions" hx-swap-oob="true"></datalist>
+        <datalist id="autocomplete" hx-swap-oob="true"></datalist>
 
         <div id="search-results"></div>
     </body>

@@ -1,92 +1,62 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
-	"fmt"
 	"log"
-	"net/http"
+	"os"
 	"strings"
-	"text/template"
+	"time"
+
+	"github.com/kucicm/X-11/pkg/build"
+	"github.com/kucicm/X-11/pkg/server"
+	_ "github.com/mattn/go-sqlite3"
 )
 
-type SuggestionResult struct {
-    Suggestion string
-    // maybe add from history vs no history
-}
-
-type SearchResult struct {
-    Title string `db:"file_name"`
-    Rank float64 `db:"rank"`
-}
-
-var trie *Trie
-var searchIndex *SearchIndex
-
 func main() {
-    port := flag.Int("port", 7323, "port")
-    knowledge_base_path := flag.String("path", "", "where are txt documents")
+    mode := flag.String("mode", "server", "options: server , build")
     flag.Parse()
 
-    if *knowledge_base_path == "" {
-        log.Fatalln("path must be provided")
+    switch strings.ToLower(*mode) {
+    case "server":
+        startServer()
+    case "build":
+        startBuilding()
     }
-
-    // move to seperate runnable
-    trie, searchIndex = BuildIndex(*knowledge_base_path, ".")
-
-    http.Handle("/assets/", http.FileServer(http.Dir(".")))
-    http.HandleFunc("/", rootHander)
-    http.HandleFunc("/suggest", suggestHandler)
-    http.HandleFunc("/search", searchHandler)
-
-    log.Printf("server running on port %d\n", *port)
-    log.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", *port), nil))
 }
 
-func rootHander(w http.ResponseWriter, _ *http.Request) {
-    tmpl := template.Must(template.ParseFiles("./templates/index.html"))
-    tmpl.Execute(w, nil)
-}
+func startServer() {
+    log.Println("starting server...")
 
-func suggestHandler(w http.ResponseWriter, r *http.Request) {
-    //w.Header().Add("Cache-Control", "private, max-age=3600")
-    query := strings.TrimSpace(r.URL.Query().Get("query"))
-    if query == "" {
-        return
-    }
-
-
-    tmpl := template.Must(template.ParseFiles("./templates/suggestion_results.html"))
-    suggestions := make([]SuggestionResult, 0)
-
-    tokens := Tokenize(query)
-    for _, token := range trie.Search(tokens) {
-        suggestions = append(suggestions, SuggestionResult{UnTokenize(token)})
-    }
-    data := map[string][]SuggestionResult{
-        "Suggestions": suggestions,
-    }
-    tmpl.Execute(w, data)
-}
-
-func searchHandler(w http.ResponseWriter, r *http.Request) {
-    query := r.URL.Query()
-    str := strings.TrimSpace(query.Get("query"))
-
-    if str == "" {
-        w.Write([]byte(""))
-        return
-    }
-
-    res, err := searchIndex.Search(StrTokenize(str), 20)
+    file, err := os.ReadFile("server.json")
     if err != nil {
-        w.WriteHeader(http.StatusInternalServerError)
-        return
+        log.Fatalf("ERROR: cannot open server.json, %s", err)
     }
-    tmpl := template.Must(template.ParseFiles("./templates/search_results.html"))
-    data := map[string][]SearchResult{
-        "Results": res,
+
+    var cfg server.ServerCfg
+    if err := json.Unmarshal(file, &cfg); err != nil {
+        log.Fatalf("ERROR: cannot unmarshal server.json, %s", err)
     }
-    tmpl.Execute(w, data)
+
+    server.StartServer(cfg)
+}
+
+func startBuilding() {
+    log.Println("bulding...")
+    defer func(start time.Time) {
+        log.Printf("building done in %s", time.Since(start))
+    }(time.Now())
+
+    file, err := os.ReadFile("build.json")
+    if err != nil {
+        log.Fatalf("ERROR: cannot open build.json, %s", err)
+    }
+
+    var cfg build.BuildCfg
+    if err := json.Unmarshal(file, &cfg); err != nil {
+        log.Fatalf("ERROR: cannot unmarshal build.json, %s", err)
+    }
+
+    build.BuildIndices(cfg)
 }
 

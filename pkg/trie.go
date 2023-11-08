@@ -1,5 +1,6 @@
-package main
+package pkg
 
+/*
 import (
 	"log"
 	"sort"
@@ -137,3 +138,4 @@ func (n *trieNode) topN() []Prefix {
     }
     return ret
 }
+*/

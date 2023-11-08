@@ -1,9 +1,9 @@
 <div id="search-suggestion-box" hx-swap-oob="true"></div>
 <ul>
-    {{if .Results}}
-        {{range .Results}}
+    {{if .}}
+        {{range .}}
         <li>
-            <p>{{.Title}}</p>
+            <p>{{.FilePath}}</p>
             <p>{{.Rank}}</p>
         </li>
         {{end}}
