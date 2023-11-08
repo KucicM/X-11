@@ -54,12 +54,14 @@ func (t *tfIdf) Search(tokens []common.Token, maxResults int) ([]SearchIndexResu
     GROUP BY i.file_id
     HAVING rank > 0
     ORDER BY rank DESC
-    LIMIT 20;`
+    LIMIT ?;`
 
-    query, args, err := sqlx.In(q, tokenIds)
+    query, args, err := sqlx.In(q, tokenIds, maxResults)
     if err != nil {
         return nil, err
     }
+
+    log.Println(query)
 
     var out []SearchIndexResult
     if err := db.Select(&out, query, args...); err != err {
