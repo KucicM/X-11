@@ -1,13 +1,12 @@
-<div id="search-suggestion-box" hx-swap-oob="true"></div>
-<ul>
-    {{if .}}
-        {{range .}}
-        <li>
-            <p>{{.FilePath}}</p>
-            <p>{{.Rank}}</p>
-        </li>
-        {{end}}
-    {{else}}
-        <li><p>No Results</p></li>
+{{if .}}
+    {{range .}}
+    <div>
+        <p>{{.FilePath}}</p>
+        <p>{{.Rank}}</p>
+    </div>
     {{end}}
-</ul>
+{{else}}
+    <div>
+        <p>No Results</p>
+    </div>
+{{end}}

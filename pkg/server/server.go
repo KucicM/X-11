@@ -3,6 +3,7 @@ package server
 import (
 	"fmt"
 	"log"
+	"math/rand"
 	"net/http"
 	"os"
 	"strings"
@@ -75,8 +76,16 @@ func (s *server) autocompleteHandler(w http.ResponseWriter, r *http.Request) {
     tmpl := template.Must(template.ParseFiles(s.autocompleteTemplatePath))
 
     // todo fetch actula data
+    var letterRunes = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
+    data := make([]string, 5)
+    for i := range data {
 
-    data := []string{"test 1", "test 2"}
+        word := []rune(query)
+        for j := 0; j < rand.Intn(5); j++ {
+            word = append(word, letterRunes[j])
+        }
+        data[i] = string(word)
+    }
     tmpl.Execute(w, data)
 }
 

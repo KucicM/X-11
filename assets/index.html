@@ -5,16 +5,14 @@
         <title>X-11</title>
 
         <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <meta name="color-scheme" content="light dark"/>
         <link rel="stylesheet" href="assets/style.css">
         <script src="https://unpkg.com/htmx.org@1.9.6"></script>
         <script src="https://unpkg.com/hyperscript.org@0.9.12"></script>
     </head>
 
     <body>
-        <form hx-get="/search" hx-target="#search-results">
-            <input id="search-bar" autocomplete="off"
+        <form hx-get="/search" hx-target="#search-results" class="searchForm">
+            <input id="search-bar" autocomplete="off" class="searchBar"
             name="query"
             hx-get="/autocomplete"
             hx-trigger="keyup[keyCode!=38 && keyCode!=40 && keyCode != 37 && keyCode != 39] changed delay:10ms"
@@ -42,40 +40,120 @@
 
             on resetQuery(e)
             if @og-query 
-                set me.value to @og-query 
-                then send resetCursor(e:e) to me 
-                then remove @og-query
+            set me.value to @og-query 
+            then send resetCursor(e:e) to me 
+            then remove @og-query
             end
             "
             >
         </form>
 
-        <div id="search-results"></div>
+        <div class="main">
+            <div class="autocompleteOuter">
+                <div class="autocompleteInner">
+                    <ul id="autocomplete"
+                        _ = "
+                        // on non arrow key or left/right, remove selection
+                        on keydown[keyCode!=38 and keyCode!=40] from #search-bar remove .selected from <li/> 
 
-        <ul id="autocomplete" 
-            _ = "
-            // on non arrow key or left/right, remove selection
-            on keydown[keyCode!=38 and keyCode!=40] from #search-bar remove .selected from <li/> 
+                        // down
+                        on keydown[keyCode==40] from #search-bar
+                        set c to first <li.selected/> in me
+                        then if c remove .selected from c then get next <li/> from c end
+                        then if not c get first <li/> in me end
+                        then trigger newSelect(n:it, e:event) end
 
-            // down
-            on keydown[keyCode==40] from #search-bar
-            set c to first <li.selected/> in me
-            then if c remove .selected from c then get next <li/> from c end
-            then if not c get first <li/> in me end
-            then trigger newSelect(n:it, e:event) end
+                        // up
+                        on keydown[keyCode==38] from #search-bar
+                        set c to first <li.selected/> in me
+                        then if c remove .selected from c then get previous <li/> from c end
+                        then if not c get last <li/> in me end
+                        then trigger newSelect(n:it, e:event) end
 
-            // up
-            on keydown[keyCode==38] from #search-bar
-            set c to first <li.selected/> in me
-            then if c remove .selected from c then get previous <li/> from c end
-            then if not c get last <li/> in me end
-            then trigger newSelect(n:it, e:event) end
+                        on newSelect(n, e)
+                        if n add .selected to n end
+                        then send newSelection(selected:n, e:e) to #search-bar
+                        "
+                        >
+                    </ul>
+                </div>
+            </div>
+        </div>
 
-            on newSelect(n, e)
-            if n add .selected to n end
-            then send newSelection(selected:n, e:e) to #search-bar
-            ">
-        </ul>
+        <div>
+            <div id="search-results">
+                <div style="background-color: green">
+                    <p>Title 1</p>
+                    <p>description</p>
+                    <p>date</p>
+                </div>
+                <div style="background-color: green">
+                    <p>Title 2</p>
+                    <p>description</p>
+                    <p>date</p>
+                </div>
+                <div style="background-color: green">
+                    <p>Title 3</p>
+                    <p>description</p>
+                    <p>date</p>
+                </div>
+                <div style="background-color: green">
+                    <p>Title 4</p>
+                    <p>description</p>
+                    <p>date</p>
+                </div>
+                <div style="background-color: green">
+                    <p>Title 5</p>
+                    <p>description</p>
+                    <p>date</p>
+                </div>
+                <div style="background-color: green">
+                    <p>Title 5</p>
+                    <p>description</p>
+                    <p>date</p>
+                </div>
+                <div style="background-color: green">
+                    <p>Title 5</p>
+                    <p>description</p>
+                    <p>date</p>
+                </div>
+                <div style="background-color: green">
+                    <p>Title 1</p>
+                    <p>description</p>
+                    <p>date</p>
+                </div>
+                <div style="background-color: green">
+                    <p>Title 2</p>
+                    <p>description</p>
+                    <p>date</p>
+                </div>
+                <div style="background-color: green">
+                    <p>Title 3</p>
+                    <p>description</p>
+                    <p>date</p>
+                </div>
+                <div style="background-color: green">
+                    <p>Title 4</p>
+                    <p>description</p>
+                    <p>date</p>
+                </div>
+                <div style="background-color: green">
+                    <p>Title 5</p>
+                    <p>description</p>
+                    <p>date</p>
+                </div>
+                <div style="background-color: green">
+                    <p>Title 5</p>
+                    <p>description</p>
+                    <p>date</p>
+                </div>
+                <div style="background-color: green">
+                    <p>Title 5</p>
+                    <p>description</p>
+                    <p>date</p>
+                </div>
+            </div>
+        </div>
     </body>
 </html>
 

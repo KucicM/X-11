@@ -5,16 +5,63 @@ body {
   overflow-x: hidden;
 }
 
-#search-bar {
-  border: 1px solid;
-  border-radius: 20px;
-  font-size: 16px;
-  margin-left: 20%;
-  margin-right: 20%;
-  width: 60%;
-  height: 30px;
-  padding-left: 10px;
-  outline: none;
+.searchForm {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+}
+
+.searchBar {
+    width: 66.7%;
+    box-sizing: border-box;
+    border-width: 1px;
+    --tw-border-opacity: 1;
+    border-color: rgb(209 213 219 / var(--tw-border-opacity));
+    border-radius: 0.75rem;
+    margin-top: 0.5rem;
+    padding: 0.5rem;
+}
+
+.main {
+    width: 100%;
+    position: relative;
+    margin-bottom: 1rem;
+}
+
+.autocompleteOuter {
+    display: flex;
+    justify-content: center;
+    padding: 0px;
+    margin: 0px;
+}
+
+.autocompleteInner {
+    width: 66.7%;
+    position: absolute;
+    padding: 0px;
+}
+
+.autocompleteInner ul {
+    text-align: left;
+    padding: 0px;
+    padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
+    margin: 0px;
+    margin-top: 0.5rem;
+    background-color: #323838;
+    border-width: 1px;
+    --tw-border-opacity: 1;
+    border-color: rgb(209 213 219 / var(--tw-border-opacity));
+    border-radius: 0.75rem;
+}
+
+.autocompleteInner ul li {
+    list-style-type: none;
+    padding-left: 0.5rem;
+}
+
+.autocompleteInner ul li:hover {
+    background-color: yellow;
 }
 
 .selected {
