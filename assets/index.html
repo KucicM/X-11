@@ -20,30 +20,30 @@
             hx-trigger="keyup[keyCode!=38 && keyCode!=40 && keyCode != 37 && keyCode != 39] changed delay:10ms"
             hx-target="#autocomplete"
             _ = "
-            on keydown[keyCode!=37 and keyCode!=38 and keyCode!=39 and keyCode!=40] from me remove @og-query
-            on keydown[keyCode==38 or keyCode==40] send resetCursor to me
-            on keyup[keyCode==38 or keyCode==40] send resetCursor to me
+            // on non arrow key, delete saved query
+            on keydown[keyCode<37 or keyCode>40] from me remove @og-query 
 
-            on s(selected)
-            log selected
-            then if selected and no @og-query set @og-query to me.value end
+            // up and down should always reset cursor
+            on keydown[keyCode==38 or keyCode==40] send resetCursor(e:event) to me
+            on keyup[keyCode==38 or keyCode==40] send resetCursor(e:event) to me
+
+            // on left/right reset the query
+            on keydown[keyCode==37 or keyCode==39] from me send resetQuery(e:event) to me
+
+            on newSelection(selected, e)
+            if selected and no @og-query set @og-query to me.value end
             then if selected set me.value to selected.textContent end
-            then if no selected send resetQuery to me end
+            then if no selected send resetQuery(e:e) to me end
 
-            on resetCursor
-            log 'resetCursor called'
+            on resetCursor(e)
+            call e.preventDefault()
             then set my selectionStart to me.value.length
             then set my selectionEnd to me.value.length
 
-            on keydown[keyCode==37 or keyCode==39] from me send resetQuery to me
-
-            on resetQuery
-            log 'resetQuery called'
-            log @og-query
-            then if @og-query 
+            on resetQuery(e)
+            if @og-query 
                 set me.value to @og-query 
-                then send resetCursor to me 
-                then call event.preventDefault()
+                then send resetCursor(e:e) to me 
                 then remove @og-query
             end
             "
@@ -54,40 +54,28 @@
 
         <ul id="autocomplete" 
             _ = "
-            on keydown[keyCode!=37 and keyCode!=38 and keyCode!=39 and keyCode!=40] from #search-bar
-            set c to first <li.selected/> in me
-            then if c remove .selected from c end
+            // on non arrow key or left/right, remove selection
+            on keydown[keyCode!=38 and keyCode!=40] from #search-bar remove .selected from <li/> 
 
+            // down
             on keydown[keyCode==40] from #search-bar
             set c to first <li.selected/> in me
-            then if c remove .selected from c then get next <li/> from c then set n to it end
-            then if not c get first <li/> in me then set n to it end
-            then if n add .selected to n end
-            then send s(selected:n) to #search-bar
+            then if c remove .selected from c then get next <li/> from c end
+            then if not c get first <li/> in me end
+            then trigger newSelect(n:it, e:event) end
 
+            // up
             on keydown[keyCode==38] from #search-bar
             set c to first <li.selected/> in me
-            then if c remove .selected from c then get previous <li/> from c then set n to it end
-            then if not c get last <li/> in me then set n to it end
-            then if n add .selected to n end
-            then call event.preventDefault()
-            then send s(selected:n) to #search-bar
+            then if c remove .selected from c then get previous <li/> from c end
+            then if not c get last <li/> in me end
+            then trigger newSelect(n:it, e:event) end
 
-            on keydown[keyCode==37 or keyCode==39] from #search-bar
-            set c to first <li.selected/> in me
-            then if c remove .selected from c end
+            on newSelect(n, e)
+            if n add .selected to n end
+            then send newSelection(selected:n, e:e) to #search-bar
             ">
         </ul>
-
-        <script>
-            document.getElementById("search-bar").addEventListener("keydown", function(event) {
-                // Check if the pressed key is the up arrow or down arrow
-                if (event.key === "ArrowUp" || event.key === "ArrowLeft") {
-                    // Prevent the default behavior of the arrow keys
-                    event.preventDefault();
-                }
-            });
-        </script>
     </body>
 </html>
 
