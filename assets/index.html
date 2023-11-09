@@ -69,6 +69,8 @@
                         then if not c get last <li/> in me end
                         then trigger newSelect(n:it, e:event) end
 
+                        on keydown[key=='Enter'] from #search-bar remove <li/> from me
+
                         on newSelect(n, e)
                         if n add .selected to n end
                         then send newSelection(selected:n, e:e) to #search-bar
