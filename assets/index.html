@@ -29,6 +29,8 @@
                 // on left/right reset the query
                 on keydown[keyCode==37 or keyCode==39] from me send resetQuery(e:event) to me
 
+                on keyup[key=='Enter'] from me call me.blur() end
+
                 on newSelection(selected, e)
                 if selected and no @og-query set @og-query to me.value end
                 then if selected set me.value to selected.textContent end
@@ -48,7 +50,16 @@
                 "
                 >
             </form>
-            <div class="autocompleteOuter">
+            <div class="autocompleteOuter"
+                style="display: none;"
+                _="on blur from #search-bar hide me
+
+                   on keyup[key!='Enter'] from #search-bar send change to me
+                   on click from #search-bar send change to me
+
+                   on change from me
+                   get first <li/> in me then if it show me else hide me end
+                ">
                 <div class="autocompleteInner">
                     <ul id="autocomplete"
                         _ = "
@@ -68,8 +79,6 @@
                         then if c remove .selected from c then get previous <li/> from c end
                         then if not c get last <li/> in me end
                         then trigger newSelect(n:it, e:event) end
-
-                        on keydown[key=='Enter'] from #search-bar remove <li/> from me
 
                         on newSelect(n, e)
                         if n add .selected to n end
