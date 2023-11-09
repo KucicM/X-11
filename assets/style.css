@@ -5,9 +5,13 @@ body {
   overflow-x: hidden;
 }
 
+.searchSpace {
+    width: 100%;
+    position: fixed;
+    top: 0;
+}
 .searchForm {
     width: 100%;
-    display: flex;
     justify-content: center;
 }
 
@@ -22,12 +26,6 @@ body {
     padding: 0.5rem;
 }
 
-.main {
-    width: 100%;
-    position: relative;
-    margin-bottom: 1rem;
-}
-
 .autocompleteOuter {
     display: flex;
     justify-content: center;
@@ -37,7 +35,7 @@ body {
 
 .autocompleteInner {
     width: 66.7%;
-    position: absolute;
+    position: fixed;
     padding: 0px;
 }
 
@@ -66,4 +64,8 @@ body {
 
 .selected {
     background-color: #1c87c9;
+}
+
+.searchResults {
+    margin-top: 5rem;
 }
