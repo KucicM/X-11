@@ -16,7 +16,7 @@
                 <input id="search-bar" autocomplete="off" class="searchBar"
                 name="query"
                 hx-get="/autocomplete"
-                hx-trigger="keyup[keyCode!=38 && keyCode!=40 && keyCode != 37 && keyCode != 39] changed delay:10ms"
+                hx-trigger="keyup[key!='Enter' && keyCode!=38 && keyCode!=40 && keyCode != 37 && keyCode != 39] changed delay:10ms"
                 hx-target="#autocomplete"
                 _ = "
                 // on non arrow key, delete saved query
@@ -56,6 +56,8 @@
 
                    on keyup[key!='Enter'] from #search-bar send change to me
                    on click from #search-bar send change to me
+
+                   on htmx:afterOnLoad from #search-bar send change to me then log event
 
                    on change from me
                    get first <li/> in me then if it show me else hide me end
