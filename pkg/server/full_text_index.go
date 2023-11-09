@@ -3,6 +3,7 @@ package server
 import (
 	"fmt"
 	"log"
+	"math/rand"
 	"time"
 
 	"github.com/jmoiron/sqlx"
@@ -61,11 +62,19 @@ func (t *tfIdf) Search(tokens []common.Token, maxResults int) ([]SearchIndexResu
         return nil, err
     }
 
-    log.Println(query)
-
     var out []SearchIndexResult
     if err := db.Select(&out, query, args...); err != err {
         return nil, err
+    }
+
+    // add mock data
+    var letterRunes = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
+    for i := 0; i < rand.Intn(100)+15; i++ {
+        word := make([]rune, 0)
+        for i :=0; i < rand.Intn(15)+5; i++ {
+            word = append(word, letterRunes[rand.Intn(len(letterRunes))])
+        }
+        out = append(out, SearchIndexResult{Rank: rand.Float64(), FilePath: string(word)})
     }
     return out, nil
 }
