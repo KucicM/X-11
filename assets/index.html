@@ -57,7 +57,7 @@
                    on keyup[key!='Enter'] from #search-bar send change to me
                    on click from #search-bar send change to me
 
-                   on htmx:afterOnLoad from #search-bar send change to me then log event
+                   on htmx:afterOnLoad from #search-bar send change to me
 
                    on change from me
                    get first <li/> in me then if it show me else hide me end
@@ -93,76 +93,6 @@
         </div>
 
         <div id="search-results" class="searchResults">
-            <div style="background-color: green">
-                <p>Title 1</p>
-                <p>description</p>
-                <p>date</p>
-            </div>
-            <div style="background-color: green">
-                <p>Title 2</p>
-                <p>description</p>
-                <p>date</p>
-            </div>
-            <div style="background-color: green">
-                <p>Title 3</p>
-                <p>description</p>
-                <p>date</p>
-            </div>
-            <div style="background-color: green">
-                <p>Title 4</p>
-                <p>description</p>
-                <p>date</p>
-            </div>
-            <div style="background-color: green">
-                <p>Title 5</p>
-                <p>description</p>
-                <p>date</p>
-            </div>
-            <div style="background-color: green">
-                <p>Title 5</p>
-                <p>description</p>
-                <p>date</p>
-            </div>
-            <div style="background-color: green">
-                <p>Title 5</p>
-                <p>description</p>
-                <p>date</p>
-            </div>
-            <div style="background-color: green">
-                <p>Title 1</p>
-                <p>description</p>
-                <p>date</p>
-            </div>
-            <div style="background-color: green">
-                <p>Title 2</p>
-                <p>description</p>
-                <p>date</p>
-            </div>
-            <div style="background-color: green">
-                <p>Title 3</p>
-                <p>description</p>
-                <p>date</p>
-            </div>
-            <div style="background-color: green">
-                <p>Title 4</p>
-                <p>description</p>
-                <p>date</p>
-            </div>
-            <div style="background-color: green">
-                <p>Title 5</p>
-                <p>description</p>
-                <p>date</p>
-            </div>
-            <div style="background-color: green">
-                <p>Title 5</p>
-                <p>description</p>
-                <p>date</p>
-            </div>
-            <div style="background-color: green">
-                <p>Title 5</p>
-                <p>description</p>
-                <p>date</p>
-            </div>
         </div>
     </body>
 </html>
