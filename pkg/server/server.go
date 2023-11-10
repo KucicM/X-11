@@ -53,13 +53,14 @@ func (s *server) stop() {
 
 func (s *server) rootHandler(w http.ResponseWriter, r *http.Request) {
     data := map[string]string{"Query": "", "SearchResults":""}
-    buf, err := s.getFullPageRender(data)
+    buf, err := s.renderFullPage(data)
     if err != nil {
-        log.Printf("ERROR: / full page render %s", err)
+        log.Printf("ERROR: / rendering full page %s", err)
         w.WriteHeader(http.StatusInternalServerError)
         return
     }
-    if _, err := buf.WriteTo(w); err != nil {
+
+    if _, err = buf.WriteTo(w); err != nil {
         log.Printf("ERROR: / writing response %s", err)
         w.WriteHeader(http.StatusInternalServerError)
         return
@@ -100,24 +101,9 @@ func (s *server) searchHandler(w http.ResponseWriter, r *http.Request) {
     }
 
     query := strings.TrimSpace(r.URL.Query().Get("query"))
-
-    res, err := s.searchIndex.Search(query, s.resultsPerPage)
+    searchResults, err := s.searchIndex.Search(query, s.resultsPerPage)
     if err != nil {
         log.Printf("ERROR: /serach error %s", err)
-        w.WriteHeader(http.StatusInternalServerError)
-        return
-    }
-
-    tmpl, err := template.ParseFiles("./templates/search_results.html")
-    if err != nil {
-        log.Printf("ERROR: /search parsing template %s", err)
-        w.WriteHeader(http.StatusInternalServerError)
-        return
-    }
-
-    var resBuf bytes.Buffer
-    if err := tmpl.Execute(&resBuf, res); err != nil {
-        log.Printf("ERROR: /search executing template %s", err)
         w.WriteHeader(http.StatusInternalServerError)
         return
     }
@@ -125,37 +111,51 @@ func (s *server) searchHandler(w http.ResponseWriter, r *http.Request) {
     w.Header().Set("hx-push-url", fmt.Sprintf("/search?query=%s", query))
     w.Header().Set("hx-history-restore", "true")
 
-    if isPartialRequest(r.Header) {
-        if _, err := resBuf.WriteTo(w); err != nil {
-            log.Printf("ERROR: /search writing response %s", err)
-            w.WriteHeader(http.StatusInternalServerError)
-            return 
-        }
-    } else {
-        buf, err := s.getFullPageRender(map[string]string{"Query": query, "SearchResults": resBuf.String()})
-        if err != nil {
-            log.Printf("ERROR: /serach full page response %s", err)
-            w.WriteHeader(http.StatusInternalServerError)
-            return
-        }
-        if _, err := buf.WriteTo(w); err != nil {
-            log.Printf("ERROR: /serach writing response %s", err)
-            w.WriteHeader(http.StatusInternalServerError)
-            return
-        }
+    var buf bytes.Buffer
+    buf, err = s.renderPartialSearchResults(searchResults)
+    if err != nil {
+        log.Printf("ERROR: /search partial render %s", err)
+        w.WriteHeader(http.StatusInternalServerError)
+        return 
+    }
+
+    if !isPartialRequest(r.Header) {
+        buf, err = s.renderFullSearchResults(query, buf, searchResults)
+    }
+    if err != nil {
+        log.Printf("ERROR: /search full render %s", err)
+        w.WriteHeader(http.StatusInternalServerError)
+        return 
+    }
+
+    if _, err := buf.WriteTo(w); err != nil {
+        log.Printf("ERROR: /search writing response %s", err)
+        w.WriteHeader(http.StatusInternalServerError)
+        return 
     }
 }
 
-func (s *server) getFullPageRender(data map[string]string) (bytes.Buffer, error) {
+func (s *server) renderFullSearchResults(query string, partialResults bytes.Buffer, searchResults []SearchIndexResult) (bytes.Buffer, error) {
+    data := map[string]string{"Query": query, "SearchResults": partialResults.String()}
+    return s.renderFullPage(data)
+}
+
+func (s *server) renderPartialSearchResults(searchResults []SearchIndexResult) (bytes.Buffer, error) {
+    return s.render("./templates/search_results.html", searchResults)
+}
+
+func (s *server) renderFullPage(data map[string]string) (bytes.Buffer, error) {
+    return s.render("./templates/index.html", data)
+}
+
+func (s *server) render(templatePath string, data any) (bytes.Buffer, error) {
     var res bytes.Buffer
-    tmpl, err := template.ParseFiles("./templates/index.html")
+    tmpl, err := template.ParseFiles(templatePath)
     if err != nil {
         return res, err
     }
-    if err := tmpl.Execute(&res, data); err != nil {
-        return res, err
-    }
-    return res, nil
+    err = tmpl.Execute(&res, data);
+    return res, err
 }
 
 func (s *server) articleClickHandler(w http.ResponseWriter, r *http.Request) {
