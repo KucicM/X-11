@@ -35,11 +35,11 @@
                     then set my selectionEnd to me.value.length
                 end
 
-                on keyup[key=='Enter'] from me call me.blur() end
+                on keyup[key=='Enter'] from me call me.blur() then send search end
 
                 on selectUpdate(e)
                 send updateQuery(e:e)
-                if e.click send search then log 'search event sent' end
+                if e.click send search end
 
                 on updateQuery(e)
                 if no @og-query set @og-query to me.value end
@@ -55,6 +55,7 @@
                 style="display: none;"
                 _="
                    on htmx:afterOnLoad from #search-bar send showHide to me
+                   on keydown[key=='Enter'] from #search-bar hide me
 
                    on click from elsewhere if target.id == 'search-bar' send showHide else hide me end
 
