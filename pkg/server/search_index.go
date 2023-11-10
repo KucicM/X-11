@@ -5,6 +5,7 @@ import (
 )
 
 type SearchIndexResult struct {
+    Id int // TODO file id?
     Rank float64 `db:"rank"`
     Title string `db:"file_name"`
     Description string `db:"file_name"`

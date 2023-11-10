@@ -164,6 +164,13 @@ func (s *server) articleClickHandler(w http.ResponseWriter, r *http.Request) {
         return
     }
 
+    article := r.URL.Query().Get("article")
+    if article == "" {
+        w.WriteHeader(http.StatusBadRequest)
+        return
+    }
+    log.Printf("redirect to article %s", article)
+
     w.Header().Add("HX-Redirect", "https://www.example.com")
     w.WriteHeader(http.StatusOK)
 }
