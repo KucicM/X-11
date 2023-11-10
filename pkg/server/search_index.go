@@ -1,6 +1,8 @@
 package server
 
-import "github.com/kucicm/X-11/pkg/common"
+import (
+	"github.com/kucicm/X-11/pkg/common"
+)
 
 type SearchIndexResult struct {
     Rank float64 `db:"rank"`
@@ -30,5 +32,6 @@ func (i *SearchIndex) Search(query string, maxResults int) ([]SearchIndexResult,
     if len(tokens) == 0 {
         return ret, nil
     }
+
     return i.index.Search(tokens, maxResults)
 }
