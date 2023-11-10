@@ -16,7 +16,7 @@
                 <input id="search-bar" autocomplete="off" class="searchBar"
                 name="query"
                 hx-get="/autocomplete"
-                hx-trigger="keyup[key!='Enter' && (keyCode<37 || keyCode > 40)] changed delay:500ms"
+                hx-trigger="keyup[key!='Enter' && (keyCode<37 || keyCode > 40)] changed delay:50ms"
                 hx-target="#autocomplete"
                 _ = "
                 // on non arrow key, delete saved query
@@ -105,4 +105,3 @@
         </div>
     </body>
 </html>
-
