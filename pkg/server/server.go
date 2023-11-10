@@ -50,6 +50,7 @@ func StartServer(cfg ServerCfg) {
 
     http.HandleFunc("/autocomplete", srv.autocompleteHandler)
     http.HandleFunc("/search", srv.searchHandler)
+    http.HandleFunc("/articleClick", srv.articleClickHandler)
 
     err := http.ListenAndServe(fmt.Sprintf(":%d", cfg.Port), nil)
     srv.stop()
@@ -106,4 +107,14 @@ func (s *server) searchHandler(w http.ResponseWriter, r *http.Request) {
 
     tmpl := template.Must(template.ParseFiles("./templates/search_results.html"))
     tmpl.Execute(w, res)
+}
+
+func (s *server) articleClickHandler(w http.ResponseWriter, r *http.Request) {
+    if r.Method != http.MethodGet {
+        w.WriteHeader(http.StatusMethodNotAllowed)
+        return
+    }
+
+    w.Header().Add("HX-Redirect", "https://www.example.com")
+    w.WriteHeader(http.StatusOK)
 }

@@ -1,6 +1,6 @@
 {{if .}}
     {{range .}}
-    <div>
+    <div hx-trgger="click on me" hx-get="/articleClick">
         <h2>{{.Title}}</h2>
         <h3>{{.Description}}</h3>
         <p>rank: {{.Rank}}</p>
