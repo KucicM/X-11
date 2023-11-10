@@ -10,10 +10,6 @@ body {
     position: fixed;
     top: 0;
 }
-.searchForm {
-    width: 100%;
-    justify-content: center;
-}
 
 .searchBar {
     width: 66.7%;
@@ -68,4 +64,19 @@ body {
 
 .searchResults {
     margin-top: 5rem;
+    width: 100%;
+}
+
+.searchResults div {
+    border-radius: 0.75rem;
+    text-align: left;
+    width: 75%;
+    background-color: #1c87c9;
+    margin: 0.75rem auto;
+}
+
+.searchResults div p {
+    margin: 0;
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
 }
