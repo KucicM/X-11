@@ -10,10 +10,10 @@
         <script src="https://unpkg.com/hyperscript.org@0.9.12"></script>
     </head>
 
-    <body>
+    <body hx-history-elt>
         <div class="searchSpace">
-            <div  hx-get="/search" hx-include="[name='query']" hx-trigger="search" hx-target="#search-results" class="searchForm">
-                <input id="search-bar" autocomplete="off" class="searchBar"
+            <div hx-get="/search" hx-include="[name='query']" hx-trigger="search" hx-target="#search-results" class="searchForm">
+                <input id="search-bar" autocomplete="off" class="searchBar" value="{{.Query}}"
                 name="query"
                 hx-get="/autocomplete"
                 hx-trigger="keyup[key!='Enter' && (keyCode<37 || keyCode > 40)] changed delay:50ms"
@@ -108,6 +108,8 @@
         </div>
 
         <div id="search-results" class="searchResults">
+            {{.SearchResults}}
         </div>
+
     </body>
 </html>
