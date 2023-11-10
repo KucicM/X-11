@@ -12,45 +12,34 @@
 
     <body>
         <div class="searchSpace">
-            <form hx-get="/search" hx-target="#search-results" class="searchForm">
+            <div  hx-get="/search" hx-include="[name='query']" hx-trigger="search" hx-target="#search-results" class="searchForm">
                 <input id="search-bar" autocomplete="off" class="searchBar"
                 name="query"
                 hx-get="/autocomplete"
-                hx-trigger="keyup[key!='Enter' && (keyCode<37 || keyCode > 40)] changed delay:10ms"
+                hx-trigger="keyup[key!='Enter' && (keyCode<37 || keyCode > 40)] changed delay:500ms"
                 hx-target="#autocomplete"
                 _ = "
                 // on non arrow key, delete saved query
                 on keydown[keyCode<37 or keyCode>40] from me remove @og-query 
 
-                // up and down should always reset cursor
-                on keydown[keyCode==38 or keyCode==40] send resetCursor(e:event) to me
-                on keyup[keyCode==38 or keyCode==40] send resetCursor(e:event) to me
+                on keydown[keyCode==38] event.preventDefault()
+                on keyup[keyCode==38] event.preventDefault()
 
                 // on left/right reset the query
-                on keydown[keyCode==37 or keyCode==39] from me send resetQuery(e:event) to me
+                on keydown[keyCode==37 or keyCode==39] from me
+                if @og-query
+                    set my.value to @og-query
+                    then remove @og-query
+                    then call event.preventDefault()
+                    then set my selectionStart to me.value.length
+                    then set my selectionEnd to me.value.length
+                end
 
                 on keyup[key=='Enter'] from me call me.blur() end
 
-                on newSelection(selected, e)
-                if selected and no @og-query set @og-query to me.value end
-                then if selected set me.value to selected.textContent end
-                then if no selected send resetQuery(e:e) to me end
-                then log 'new selection'
-
-                on resetCursor(e)
-                call e.preventDefault()
-                then set my selectionStart to me.value.length
-                then set my selectionEnd to me.value.length
-
-                on resetQuery(e)
-                if @og-query 
-                set me.value to @og-query 
-                then send resetCursor(e:e) to me 
-                then remove @og-query
-                end
-
                 on selectUpdate(e)
                 send updateQuery(e:e)
+                if e.click send search then log 'search event sent' end
 
                 on updateQuery(e)
                 if no @og-query set @og-query to me.value end
@@ -61,7 +50,7 @@
                 then if e.click remove @og-query end
                 "
                 >
-            </form>
+            </div>
             <div class="autocompleteOuter"
                 style="display: none;"
                 _="
