@@ -2,6 +2,7 @@ package server
 
 import (
 	"bytes"
+	"compress/gzip"
 	"fmt"
 	"log"
 	"math/rand"
@@ -37,9 +38,9 @@ func StartServer(cfg ServerCfg) {
     assetsPath, _ = strings.CutSuffix(assetsPath, "assets")
     http.Handle("/assets/", http.FileServer(http.Dir(assetsPath)))
 
-    http.HandleFunc("/", srv.rootHandler)
+    http.HandleFunc("/", makeGzipHandler(srv.rootHandler))
     http.HandleFunc("/autocomplete", srv.autocompleteHandler)
-    http.HandleFunc("/search", srv.searchHandler)
+    http.HandleFunc("/search", makeGzipHandler(srv.searchHandler))
     http.HandleFunc("/articleClick", srv.articleClickHandler)
 
     err := http.ListenAndServe(fmt.Sprintf(":%d", cfg.Port), nil)
@@ -177,4 +178,29 @@ func (s *server) articleClickHandler(w http.ResponseWriter, r *http.Request) {
 
 func isPartialRequest(header http.Header) bool {
     return header.Get("Hx-Request") == "true"
+}
+
+type gzipResponseWriter struct {
+    http.ResponseWriter
+    buf bytes.Buffer
+}
+ 
+func (w *gzipResponseWriter) Write(b []byte) (int, error) {
+    return w.buf.Write(b)
+}
+ 
+func makeGzipHandler(fn http.HandlerFunc) http.HandlerFunc {
+    return func(w http.ResponseWriter, r *http.Request) {
+        if !strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
+            fn(w, r)
+            return
+        }
+        w.Header().Set("Content-Encoding", "gzip")
+        gzw := &gzipResponseWriter{ResponseWriter: w}
+        fn(gzw, r)
+        w.Header().Set("Content-Type", http.DetectContentType(gzw.buf.Bytes()))
+        gz := gzip.NewWriter(w)
+        defer gz.Close()
+        gzw.buf.WriteTo(gz)
+    }
 }
