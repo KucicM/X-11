@@ -74,7 +74,7 @@ func (t *tfIdf) Search(tokens []common.Token, maxResults int) ([]SearchIndexResu
         for i :=0; i < rand.Intn(15)+5; i++ {
             word = append(word, letterRunes[rand.Intn(len(letterRunes))])
         }
-        out = append(out, SearchIndexResult{Rank: rand.Float64(), FilePath: string(word)})
+        out = append(out, SearchIndexResult{Rank: rand.Float64(), Title: string(word), Description: "k. -nearest neighbors algorithm. In statistics, the k-nearest neighbors algorithm ( k-NN) is a non-parametric supervised learning method first developed by Evelyn Fix and Joseph Hodges in 1951, [1] and later expanded by Thomas Cover. [2] It is used for classification and regression. In both cases, the"})
     }
     return out, nil
 }

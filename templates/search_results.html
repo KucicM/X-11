@@ -1,12 +1,13 @@
 {{if .}}
     {{range .}}
     <div>
-        <p>{{.FilePath}}</p>
-        <p>{{.Rank}}</p>
+        <h2>{{.Title}}</h2>
+        <h3>{{.Description}}</h3>
+        <p>rank: {{.Rank}}</p>
     </div>
     {{end}}
 {{else}}
     <div>
-        <p>No Results</p>
+        <h1>No Results</h1>
     </div>
 {{end}}

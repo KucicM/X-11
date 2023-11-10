@@ -6,7 +6,8 @@ import (
 
 type SearchIndexResult struct {
     Rank float64 `db:"rank"`
-    FilePath string `db:"file_name"`
+    Title string `db:"file_name"`
+    Description string `db:"file_name"`
 }
 
 type SearchIndexCfg struct {
