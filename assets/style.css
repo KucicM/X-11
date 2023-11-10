@@ -18,6 +18,7 @@ body {
     margin-top: 0.5rem;
     padding: 0.5rem;
     border: 1px solid black;
+    font-size: large;
 }
 
 .searchBar:focus {
@@ -52,6 +53,7 @@ body {
 .autocompleteInner ul li {
     list-style-type: none;
     padding-left: 0.5rem;
+    font-size: medium;
 }
 
 .autocompleteInner ul li:hover {
@@ -83,4 +85,27 @@ body {
 
 .searchResults div h3 {
     font-weight: normal;
+}
+
+@media(prefers-color-scheme: dark) {
+    body {
+        background: #121212;
+        color: white;
+    }
+    .searchBar {
+        background: #121212;
+        border: 1px solid white;
+        color: white;
+    }
+    .autocompleteInner ul {
+        background-color: #121212;
+        border: 1px solid white;
+    }
+    .autocompleteInner ul li:hover {
+        background-color: #222222;
+    }
+
+    .selected {
+        background-color: #222222;
+    }
 }
