@@ -18,6 +18,7 @@
                 hx-get="/autocomplete"
                 hx-trigger="keyup[key!='Enter' && (keyCode<37 || keyCode > 40)] changed delay:50ms"
                 hx-target="#autocomplete"
+                placeholder="search..."
                 _ = "
                 // on non arrow key, delete saved query
                 on keydown[keyCode<37 or keyCode>40] from me remove @og-query 
@@ -50,8 +51,7 @@
                 then set my selectionStart to me.value.length
                 then set my selectionEnd to me.value.length
                 then if e.click remove @og-query end
-                "
-                >
+                ">
             </div>
             <div id="autocompleteOuter"
                 class="autocompleteOuter"
@@ -101,8 +101,7 @@
                         remove .selected from <li/> in me
                         then if e.li add .selected to e.li end
                         then send selectUpdate(e:{'click':e.click, 'txt':e.li.innerHTML}) to #search-bar
-                        "
-                        >
+                        ">
                     </ul>
                 </div>
             </div>
