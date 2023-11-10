@@ -59,7 +59,12 @@
 
                    on click from elsewhere if target.id == 'search-bar' send showHide else hide me end
 
-                   on showHide if first <li/> in me show me else hide me end
+                   on showHide 
+                   get #search-bar
+                   if it != document.activeElement hide me 
+                   else if first <li/> in me show me else hide me end
+                   end
+                   
 
                    on newSelect(e) if e.click hide me end
                 ">
