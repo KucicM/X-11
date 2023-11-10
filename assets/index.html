@@ -35,7 +35,9 @@
                     then set my selectionEnd to me.value.length
                 end
 
-                on keyup[key=='Enter'] from me call me.blur() then send search end
+                on keyup[key=='Enter'] from me call me.blur() 
+                then send enter to #autocompleteOuter
+                then send search end
 
                 on selectUpdate(e)
                 send updateQuery(e:e)
@@ -51,20 +53,19 @@
                 "
                 >
             </div>
-            <div class="autocompleteOuter"
+            <div id="autocompleteOuter"
+                class="autocompleteOuter"
                 style="display: none;"
                 _="
                    on htmx:afterOnLoad from #search-bar send showHide to me
-                   on keydown[key=='Enter'] from #search-bar hide me
+                   on enter send showHide to me
 
                    on click from elsewhere if target.id == 'search-bar' send showHide else hide me end
 
-                   on showHide 
+                   on showHide
                    get #search-bar
-                   if it != document.activeElement hide me 
-                   else if first <li/> in me show me else hide me end
-                   end
-                   
+                   then if it != document.activeElement hide me 
+                   else if first <li/> in me show me else hide me end end
 
                    on newSelect(e) if e.click hide me end
                 ">
