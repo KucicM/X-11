@@ -116,7 +116,7 @@ func (s *server) searchHandler(w http.ResponseWriter, r *http.Request) {
         searchResults[len(searchResults) - 1].NextPage = fmt.Sprintf(tmpl, query, page+1)
     }
 
-    w.Header().Set("hx-push-url", fmt.Sprintf("/search?query=%s?page=%d", query, page))
+    w.Header().Set("hx-push-url", fmt.Sprintf("/search?query=%s&page=%d", query, page))
     w.Header().Set("hx-history-restore", "true")
 
     var buf bytes.Buffer

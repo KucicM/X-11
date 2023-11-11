@@ -79,6 +79,9 @@ func (fts *FullTextSearch) AddDocumetn(doc Document) {
 
 func (fts *FullTextSearch) Search(query string, page int) ([]FullTextSearchResult, error) {
     tokens := common.Tokenize(query)
+    if len(tokens) == 0 {
+        return make([]FullTextSearchResult, 0), nil
+    }
 
     db := sqlx.MustOpen("sqlite3", fts.dbUrl)
     defer func(start time.Time) {
