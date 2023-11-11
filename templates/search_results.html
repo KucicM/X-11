@@ -1,10 +1,10 @@
 {{if .}}
     {{range .}}
-    <div hx-trgger="click on me" hx-get="/articleClick?article={{.FileId}}">
-        <h2>{{.Title}}</h2>
-        <h3>{{.Description}}</h3>
-        <p>rank: {{.Rank}}</p>
-    </div>
+        <div{{.NextPage}}>
+            <h2 hx-trgger="click on me" hx-get="/articleClick?article={{.FileId}}">{{.Title}}</h2>
+            <h3>{{.Description}}</h3>
+            <p>rank: {{.Rank}}</p>
+        </div>
     {{end}}
 {{else}}
     <div>

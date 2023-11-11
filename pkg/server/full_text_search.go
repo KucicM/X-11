@@ -26,6 +26,7 @@ type FullTextSearchResult struct {
     Rank float64 `db:"rank"`
     Title string `db:"title"`
     Description string `db:"description"`
+    NextPage string // should not be here...
 }
 
 type FullTextSearch struct {

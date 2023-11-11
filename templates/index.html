@@ -12,7 +12,7 @@
 
     <body hx-history-elt>
         <div class="searchSpace">
-            <div hx-get="/search" hx-include="[name='query']" hx-trigger="search" hx-target="#search-results" class="searchForm">
+            <div hx-get="/search" hx-include="[name='query']"  hx-trigger="search" hx-target="#search-results" class="searchForm">
                 <input id="search-bar" autocomplete="off" class="searchBar" value="{{.Query}}"
                 name="query"
                 hx-get="/autocomplete"

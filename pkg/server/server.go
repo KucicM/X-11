@@ -16,13 +16,11 @@ import (
 type ServerCfg struct {
     TemplatesPath string `json:"templates-path"`
     AssetsPath string `json:"assets-path"`
-    ResultsPerPage int `json:"results-per-page"`
     Port int `json:"port"`
     FtsCfg FullTextSearchCfg `json:"full-text-search"`
 }
 
 type server struct {
-    resultsPerPage int
     fts *FullTextSearch
 
     // to be replaced with in memory templates
@@ -34,7 +32,6 @@ func StartServer(cfg ServerCfg) {
     srv := &server{
         autocompleteTemplatePath: fmt.Sprintf("%s/autocomplete_results.html", cfg.TemplatesPath),
         fts: NewFullTextSearch(cfg.FtsCfg),
-        resultsPerPage: cfg.ResultsPerPage,
     }
 
     assetsPath, _ := strings.CutSuffix(cfg.AssetsPath, "/")
@@ -106,14 +103,20 @@ func (s *server) searchHandler(w http.ResponseWriter, r *http.Request) {
     }
 
     query := strings.TrimSpace(r.URL.Query().Get("query"))
-    searchResults, err := s.fts.Search(query, s.resultsPerPage)
+    page, _ := strconv.Atoi(strings.TrimSpace(r.URL.Query().Get("page")))
+    searchResults, err := s.fts.Search(query, page)
     if err != nil {
         log.Printf("ERROR: /serach error %s", err)
         w.WriteHeader(http.StatusInternalServerError)
         return
     }
 
-    w.Header().Set("hx-push-url", fmt.Sprintf("/search?query=%s", query))
+    if len(searchResults) > 0 {
+        tmpl := ` hx-get="/search?query=%s&page=%d" hx-trigger="revealed" hx-swap="afterend"`
+        searchResults[len(searchResults) - 1].NextPage = fmt.Sprintf(tmpl, query, page+1)
+    }
+
+    w.Header().Set("hx-push-url", fmt.Sprintf("/search?query=%s?page=%d", query, page))
     w.Header().Set("hx-history-restore", "true")
 
     var buf bytes.Buffer
