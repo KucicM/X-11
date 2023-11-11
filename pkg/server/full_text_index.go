@@ -44,7 +44,7 @@ func (t *tfIdf) Search(tokens []string, maxResults int) ([]SearchIndexResult, er
     defer db.Close()
 
     q := `
-    SELECT f.id, f.title, f.description, SUM(tf * idf) as rank
+    SELECT f.id, f.title, f.description, SUM(tfidf) as rank
     FROM tf_idf_index i
     JOIN files f ON f.id = i.file_id
     WHERE token_id IN (?)

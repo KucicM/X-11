@@ -26,7 +26,7 @@ func newFullTextIndex(cfg FullTextIndexCfg) *fullTextIndex {
 	var initQueries = []string{
 		"DROP TABLE IF EXISTS tf_idf_index;",
 		"DROP TABLE IF EXISTS files;",
-		"CREATE TABLE IF NOT EXISTS tf_idf_index (token_id INTEGER, tf REAL, idf REAL, file_id INTEGER);",
+		"CREATE TABLE IF NOT EXISTS tf_idf_index (token_id INTEGER, tfidf REAL, file_id INTEGER);",
 		"CREATE TABLE IF NOT EXISTS files (id INTEGER PRIMARY KEY, title varchar(255), url varchar(255), description TEXT);",
 		"PRAGMA synchronous = OFF;",
 		"PRAGMA journal_mode = MEMORY;",
@@ -67,7 +67,7 @@ func (b *fullTextIndex) save(doc Document, relativeFreq map[uint32]int) {
 		log.Fatalf("ERROR: failed to get last id %s", err)
 	}
 
-	stmt, err := tx.Preparex("INSERT INTO tf_idf_index (token_id, tf, file_id) VALUES ($1, $2, $3);")
+	stmt, err := tx.Preparex("INSERT INTO tf_idf_index (token_id, tfidf, file_id) VALUES ($1, $2, $3);")
 	if err != nil {
 		log.Fatalf("ERROR: failed to prepare stmt %s", err)
 	}
@@ -122,7 +122,7 @@ func (b *fullTextIndex) saveIDF() {
 
 	tx := b.db.MustBegin()
 
-	stmt, err := tx.Preparex("UPDATE tf_idf_index SET idf = $1 WHERE token_id = $2")
+	stmt, err := tx.Preparex("UPDATE tf_idf_index SET tfidf = tfidf * $1 WHERE token_id = $2")
 	if err != nil {
 		log.Fatalf("ERROR: failed to create prepared statment for idf save %s", err)
 	}
