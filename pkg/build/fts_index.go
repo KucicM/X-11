@@ -26,7 +26,7 @@ func newFullTextIndex(cfg FullTextIndexCfg) *fullTextIndex {
 		"DROP TABLE IF EXISTS tf_idf_index;",
 		"DROP TABLE IF EXISTS files;",
 		"CREATE TABLE IF NOT EXISTS tf_idf_index (token_id INTEGER, tf REAL, idf REAL, file_id INTEGER);",
-		"CREATE TABLE IF NOT EXISTS files (id INTEGER PRIMARY KEY, file_name varchar(255), file_path varchar(255));",
+		"CREATE TABLE IF NOT EXISTS files (id INTEGER PRIMARY KEY, title varchar(255), url varchar(255), description TEXT);",
 		"PRAGMA synchronous = OFF;",
 		"PRAGMA journal_mode = MEMORY;",
 	}
@@ -44,11 +44,11 @@ func newFullTextIndex(cfg FullTextIndexCfg) *fullTextIndex {
 	}
 }
 
-func (b *fullTextIndex) AddDocument(file_name, file_path string, tokens []common.Token) {
-	relativeFreq := computeRelativeFrequency(tokens)
+func (b *fullTextIndex) AddDocument(doc common.Document) {
+	relativeFreq := computeRelativeFrequency(doc.Tokens)
 
 	b.idf.update(relativeFreq)
-	b.save(file_name, file_path, relativeFreq, len(tokens))
+	b.save(doc, relativeFreq)
 }
 
 func computeRelativeFrequency(tokens []common.Token) map[int]int {
@@ -59,9 +59,9 @@ func computeRelativeFrequency(tokens []common.Token) map[int]int {
 	return relativeFreq
 }
 
-func (b *fullTextIndex) save(file_name, file_path string, relativeFreq map[int]int, tokenCount int) {
+func (b *fullTextIndex) save(doc common.Document, relativeFreq map[int]int) {
 	tx := b.db.MustBegin()
-	res := tx.MustExec("INSERT INTO files (file_name, file_path) VALUES ($1, $2)", file_name, file_path)
+	res := tx.MustExec("INSERT INTO files (title, url, description) VALUES ($1, $2, $3)", doc.Title, doc.Url, doc.Description)
 	fileId, err := res.LastInsertId()
 	if err != nil {
 		log.Fatalf("ERROR: failed to get last id %s", err)
@@ -74,7 +74,7 @@ func (b *fullTextIndex) save(file_name, file_path string, relativeFreq map[int]i
 	defer stmt.Close()
 
 	for tokenId, freq := range relativeFreq {
-		tf := float64(freq) / float64(tokenCount)
+		tf := float64(freq) / float64(len(doc.Tokens))
 		_ = stmt.MustExec(tokenId, tf, fileId)
 	}
 

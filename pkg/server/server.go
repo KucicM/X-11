@@ -7,8 +7,10 @@ import (
 	"log"
 	"math/rand"
 	"net/http"
+	"strconv"
 	"strings"
 	"text/template"
+	"time"
 )
 
 type ServerCfg struct {
@@ -28,6 +30,7 @@ type server struct {
 }
 
 func StartServer(cfg ServerCfg) {
+    start := time.Now()
     srv := &server{
         autocompleteTemplatePath: fmt.Sprintf("%s/autocomplete_results.html", cfg.TemplatesPath),
         searchIndex: NewSearchIndex(cfg.SiCfg),
@@ -43,6 +46,7 @@ func StartServer(cfg ServerCfg) {
     http.HandleFunc("/search", makeGzipHandler(srv.searchHandler))
     http.HandleFunc("/articleClick", srv.articleClickHandler)
 
+    log.Printf("sever started in %v", time.Since(start))
     err := http.ListenAndServe(fmt.Sprintf(":%d", cfg.Port), nil)
     srv.stop()
     log.Fatal(err)
@@ -167,12 +171,26 @@ func (s *server) articleClickHandler(w http.ResponseWriter, r *http.Request) {
 
     article := r.URL.Query().Get("article")
     if article == "" {
+        log.Println("WARN: /articleClick got no article")
         w.WriteHeader(http.StatusBadRequest)
         return
     }
-    log.Printf("redirect to article %s", article)
 
-    w.Header().Add("HX-Redirect", "https://www.example.com")
+    id, err := strconv.Atoi(article)
+    if err != nil {
+        log.Printf("ERROR: /articleClick %s", err)
+        w.WriteHeader(http.StatusBadRequest)
+        return
+    }
+
+    url, err := s.searchIndex.GetUrl(id)
+    if err != nil {
+        log.Printf("ERROR: /articleClick failed to get url %s", err)
+        w.WriteHeader(http.StatusBadRequest)
+        return
+    }
+
+    w.Header().Add("HX-Redirect", url)
     w.WriteHeader(http.StatusOK)
 }
 
@@ -180,6 +198,8 @@ func isPartialRequest(header http.Header) bool {
     return header.Get("Hx-Request") == "true"
 }
 
+
+// TODO move to utils
 type gzipResponseWriter struct {
     http.ResponseWriter
     buf bytes.Buffer

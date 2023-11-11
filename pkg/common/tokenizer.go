@@ -1,6 +1,7 @@
 package common
 
 import (
+	"database/sql"
 	"fmt"
 	"log"
 	"time"
@@ -35,7 +36,7 @@ func NewTokenizer(cfg TokenizerCfg) *Tokenizer {
         log.Printf("rebuilding %s", cfg.DbPath)
         db := sqlx.MustOpen("sqlite3", cfg.DbPath)
         defer db.Close()
-        db.MustExec("CREATE TABLE IF NOT EXISTS tokens (id INTEGER, token VARCHAR(30));")
+        db.MustExec("CREATE TABLE IF NOT EXISTS tokens (id INTEGER, token BLOB);")
         db.MustExec("DELETE FROM tokens")
         db.MustExec("PRAGMA synchronous = OFF;")
         db.MustExec("PRAGMA journal_mode = MEMORY;")
@@ -71,7 +72,10 @@ func (t *Tokenizer) Gramify(content []byte, minN, maxN int) []Token {
         }
 
         for ll := l; (h - ll) >= minN; ll++ {
-            ngmraTerms = append(ngmraTerms, mergeTerms(terms[ll:h]))
+            term := mergeTerms(terms[ll:h])
+            if len(term) > 0 {
+                ngmraTerms = append(ngmraTerms, term)
+            }
         }
 
         if h <= len(terms) {
@@ -85,7 +89,9 @@ func (t *Tokenizer) toTokens(terms [][]rune) []Token {
     ret := make([]Token, 0, len(terms))
     for i := range terms {
         if id := t.encode(string(terms[i])); id != 0 {
-            ret = append(ret, Token{Id: id, Runes: terms[i]})
+            if len(terms[i]) > 0 {
+                ret = append(ret, Token{Id: id, Runes: terms[i]})
+            }
         }
     }
     return ret
@@ -123,7 +129,10 @@ func (t *Tokenizer) populateCache() {
         }
         t.encodeCache[token] = id
         t.decodeCache[id] = token
+        log.Printf("%d -> %s", id, token)
     }
+    log.Printf("loaded %d unique tokens", len(t.encodeCache))
+    log.Printf("loaded %d unique tokens", len(t.decodeCache))
 
 }
 
@@ -133,14 +142,17 @@ func (t *Tokenizer) Close() {
         log.Printf("token mapping saved in %v", time.Since(start))
     }(time.Now())
 
+
     db := sqlx.MustOpen("sqlite3", t.dbPath)
-    defer db.Close()
 
     tx := db.MustBegin()
-    stmt, err := tx.Preparex("INSERT INTO tokens (id, token) VALUES ($1, $2);")
+    defer tx.Rollback()
+
+    stmt, err := tx.Preparex("INSERT INTO tokens (id, token) VALUES (?, ?);")
     if err != nil {
-        log.Fatalf("ERROR: failed to create prepare statment for token insert %s", err)
+        log.Fatalf("ERROR: prepare to tokens %s", err)
     }
+    defer stmt.Close()
 
     for token, id := range t.encodeCache {
         _ = stmt.MustExec(id, token)
@@ -149,7 +161,9 @@ func (t *Tokenizer) Close() {
     if err := tx.Commit(); err != nil {
         log.Fatalf("ERROR: failed to commit to token db")
     }
-
+    if err = db.Close(); err != nil {
+        log.Fatalf("ERROR: failed to close token db %s", err)
+    }
 }
 
 func mergeTerms(terms [][]rune) []rune {
@@ -186,7 +200,9 @@ func breakIntoTerms(content []byte) [][]rune {
         } else {
             doc, term = take(doc, 1)
         }
-        terms = append(terms, term)
+        if len(term) > 0 {
+            terms = append(terms, term)
+        }
     }
     return terms
 }

@@ -3,7 +3,6 @@ package server
 import (
 	"fmt"
 	"log"
-	"math/rand"
 	"time"
 
 	"github.com/jmoiron/sqlx"
@@ -12,6 +11,7 @@ import (
 
 type FullTextIndex interface {
     Search(tokens []common.Token, maxResults int) ([]SearchIndexResult, error)
+    GetUrl(fileId int) (string, error)
 }
 
 type FullTextIndexCfg struct {
@@ -48,7 +48,7 @@ func (t *tfIdf) Search(tokens []common.Token, maxResults int) ([]SearchIndexResu
     }
     defer db.Close()
 
-    q := `SELECT f.file_name, SUM(i.tf * i.idf) rank
+    q := `SELECT f.id, f.title, f.description, SUM(i.tf * i.idf) rank
     FROM tf_idf_index i
     JOIN files f ON f.id = i.file_id
     WHERE i.token_id IN (?)
@@ -66,15 +66,21 @@ func (t *tfIdf) Search(tokens []common.Token, maxResults int) ([]SearchIndexResu
     if err := db.Select(&out, query, args...); err != err {
         return nil, err
     }
-
-    // add mock data
-    var letterRunes = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
-    for i := 0; i < rand.Intn(100)+15; i++ {
-        word := make([]rune, 0)
-        for j :=0; j < rand.Intn(15)+5; j++ {
-            word = append(word, letterRunes[rand.Intn(len(letterRunes))])
-        }
-        out = append(out, SearchIndexResult{Id: i, Rank: rand.Float64(), Title: string(word), Description: "k. -nearest neighbors algorithm. In statistics, the k-nearest neighbors algorithm ( k-NN) is a non-parametric supervised learning method first developed by Evelyn Fix and Joseph Hodges in 1951, [1] and later expanded by Thomas Cover. [2] It is used for classification and regression. In both cases, the"})
-    }
     return out, nil
+}
+
+// todo this should not be here
+func (t *tfIdf) GetUrl(id int) (string, error) {
+    db, err := sqlx.Open("sqlite3", fmt.Sprintf("%s?mode.ro", t.dbFilePath))
+    if err != nil {
+        return "", err
+    }
+    defer db.Close()
+
+    row := db.QueryRow("SELECT url FROM files WHERE id = ?;", id)
+    var url string
+    if err := row.Scan(&url); err != nil {
+        return "", err
+    }
+    return url, err
 }

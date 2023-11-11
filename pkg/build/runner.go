@@ -2,6 +2,7 @@
 package build
 
 import (
+	"encoding/json"
 	"io/fs"
 	"log"
 	"os"
@@ -16,6 +17,14 @@ type BuildCfg struct {
     FtsCfg FullTextIndexCfg `json:"full-text-index"`
     TokenizerCfg common.TokenizerCfg `json:"tokenizer"`
 }
+
+type InputData struct {
+    Title string `json:"title"`
+    Text string `json:"text"`
+    Url string `json:"url"`
+    Description string `json:"description"`
+}
+
 
 func BuildIndices(cfg BuildCfg) {
 
@@ -34,7 +43,7 @@ func BuildIndices(cfg BuildCfg) {
             return nil
         }
 
-        if !strings.HasSuffix(path, ".txt") {
+        if !strings.HasSuffix(path, ".json") {
             return nil
         }
 
@@ -45,8 +54,25 @@ func BuildIndices(cfg BuildCfg) {
             return err
         }
 
-        tokens := tokenizer.Tokenize(bytes)
-        fts.AddDocument(d.Name(), path, tokens)
+        var data InputData
+        if err := json.Unmarshal(bytes, &data); err != nil {
+            return err
+        }
+
+        titleTokens := tokenizer.Tokenize([]byte(data.Title))
+        textTokens := tokenizer.Gramify([]byte(data.Text), 1, 1)
+        tokens := make([]common.Token, 0, len(titleTokens) + len(textTokens))
+        tokens = append(tokens, titleTokens...)
+        tokens = append(tokens, textTokens...)
+
+        doc := common.Document{
+            Path: path,
+            Title: data.Title,
+            Tokens: tokens,
+            Url: data.Url,
+            Description: data.Description,
+        }
+        fts.AddDocument(doc)
 
         return nil
     })

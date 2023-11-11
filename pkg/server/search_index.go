@@ -5,10 +5,10 @@ import (
 )
 
 type SearchIndexResult struct {
-    Id int // TODO file id?
+    Id int `db:"id"`
     Rank float64 `db:"rank"`
-    Title string `db:"file_name"`
-    Description string `db:"file_name"`
+    Title string `db:"title"`
+    Description string `db:"description"`
 }
 
 type SearchIndexCfg struct {
@@ -36,4 +36,9 @@ func (i *SearchIndex) Search(query string, maxResults int) ([]SearchIndexResult,
     }
 
     return i.index.Search(tokens, maxResults)
+}
+
+// todo this should not be here
+func (i *SearchIndex) GetUrl(id int) (string, error) {
+    return i.index.GetUrl(id)
 }
