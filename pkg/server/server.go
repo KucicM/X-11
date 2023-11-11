@@ -18,12 +18,12 @@ type ServerCfg struct {
     AssetsPath string `json:"assets-path"`
     ResultsPerPage int `json:"results-per-page"`
     Port int `json:"port"`
-    SiCfg SearchIndexCfg `json:"search-index"`
+    FtsCfg FullTextSearchCfg `json:"full-text-search"`
 }
 
 type server struct {
     resultsPerPage int
-    searchIndex *SearchIndex
+    fts *FullTextSearch
 
     // to be replaced with in memory templates
     autocompleteTemplatePath string
@@ -33,7 +33,7 @@ func StartServer(cfg ServerCfg) {
     start := time.Now()
     srv := &server{
         autocompleteTemplatePath: fmt.Sprintf("%s/autocomplete_results.html", cfg.TemplatesPath),
-        searchIndex: NewSearchIndex(cfg.SiCfg),
+        fts: NewFullTextSearch(cfg.FtsCfg),
         resultsPerPage: cfg.ResultsPerPage,
     }
 
@@ -106,7 +106,7 @@ func (s *server) searchHandler(w http.ResponseWriter, r *http.Request) {
     }
 
     query := strings.TrimSpace(r.URL.Query().Get("query"))
-    searchResults, err := s.searchIndex.Search(query, s.resultsPerPage)
+    searchResults, err := s.fts.Search(query, s.resultsPerPage)
     if err != nil {
         log.Printf("ERROR: /serach error %s", err)
         w.WriteHeader(http.StatusInternalServerError)
@@ -140,12 +140,12 @@ func (s *server) searchHandler(w http.ResponseWriter, r *http.Request) {
     }
 }
 
-func (s *server) renderFullSearchResults(query string, partialResults bytes.Buffer, searchResults []SearchIndexResult) (bytes.Buffer, error) {
+func (s *server) renderFullSearchResults(query string, partialResults bytes.Buffer, searchResults []FullTextSearchResult) (bytes.Buffer, error) {
     data := map[string]string{"Query": query, "SearchResults": partialResults.String()}
     return s.renderFullPage(data)
 }
 
-func (s *server) renderPartialSearchResults(searchResults []SearchIndexResult) (bytes.Buffer, error) {
+func (s *server) renderPartialSearchResults(searchResults []FullTextSearchResult) (bytes.Buffer, error) {
     return s.render("./templates/search_results.html", searchResults)
 }
 
@@ -183,7 +183,7 @@ func (s *server) articleClickHandler(w http.ResponseWriter, r *http.Request) {
         return
     }
 
-    url, err := s.searchIndex.GetUrl(id)
+    url, err := s.fts.GetUrl(id)
     if err != nil {
         log.Printf("ERROR: /articleClick failed to get url %s", err)
         w.WriteHeader(http.StatusBadRequest)

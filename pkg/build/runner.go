@@ -10,31 +10,22 @@ import (
 	"strings"
 
 	"github.com/kucicm/X-11/pkg/common"
+	"github.com/kucicm/X-11/pkg/server"
 )
 
 type BuildCfg struct {
     SourceFolder string `json:"source-folder"`
-    FtsCfg FullTextIndexCfg `json:"full-text-index"`
+    FtsCfg server.FullTextSearchCfg `json:"full-text-search"`
 }
 
 type InputData struct {
     Title string `json:"title"`
     Text string `json:"text"`
     Url string `json:"url"`
-    Description string `json:"description"`
-}
-
-type Document struct {
-    Path string
-    Title string
-    Tokens []string
-    Url string
-    Description string
 }
 
 func BuildIndices(cfg BuildCfg) {
-    fts := newFullTextIndex(cfg.FtsCfg)
-    defer fts.close()
+    fts := server.NewFullTextSearch(cfg.FtsCfg)
 
     err := filepath.WalkDir(cfg.SourceFolder, func(path string, d fs.DirEntry, err error) error {
         if err != nil {
@@ -61,21 +52,18 @@ func BuildIndices(cfg BuildCfg) {
             return err
         }
 
-        titleTokens := common.GramifyStr(data.Title, 1, 4)
-        textTokens := common.GramifyStr(data.Text, 1, 4)
+        titleTokens := common.Tokenize(data.Title)
+        textTokens := common.Tokenize(data.Text)
         tokens := make([]string, 0, len(titleTokens) + len(textTokens))
         tokens = append(tokens, titleTokens...)
         tokens = append(tokens, textTokens...)
 
-        doc := Document{
-            Path: path,
+        doc := server.Document{
             Title: data.Title,
             Tokens: tokens,
             Url: data.Url,
-            Description: data.Description,
         }
-        fts.AddDocument(doc)
-
+        fts.AddDocumetn(doc)
         return nil
     })
 

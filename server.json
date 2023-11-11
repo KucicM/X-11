@@ -2,10 +2,9 @@
   "assets-path": "./assets/",
   "templates-path": "./templates/",
   "port": 7323,
-  "results-per-page": 20,
-  "search-index": {
-      "full-text-index": {
-          "db-file-path": "./local/dbs/index.db"
-      }
+  "full-text-search": {
+      "db-url": "./local/dbs/fts.db?mode=ro",
+      "results-per-page": 20,
+      "rebuild": false
   }
 }

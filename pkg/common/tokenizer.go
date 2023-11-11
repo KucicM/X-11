@@ -1,80 +1,35 @@
 package common
 
 import (
-	"strings"
 	"unicode"
-
-	"github.com/twmb/murmur3"
 )
 
-func HashToken(token string) uint32 {
-    h := murmur3.New32()
-    h.Write([]byte(token))
-    return h.Sum32()
-}
 
-func TokenizeBytes(content []byte) []string {
-    return TokenizeStr(string(content))
-}
-
-func TokenizeStr(contnet string) []string {
-    return TokenizeRunes([]rune(contnet))
-}
-
-func TokenizeRunes(content []rune) []string {
+func Tokenize(contnet string) []string {
+    runes := []rune(contnet)
     terms := make([]string, 0)
-    for len(content) > 0 {
-        content = removeLeftPadding(content, func(r rune) bool {
+    for len(runes) > 0 {
+        runes = removeLeftPadding(runes, func(r rune) bool {
             return unicode.IsSpace(r) || unicode.IsPunct(r)
         })
 
-        if len(content) == 0 {
+        if len(runes) == 0 {
             break
         }
 
         var term []rune
-        if unicode.IsDigit(content[0]) {
-            content, term = takeUntil(content, unicode.IsDigit)
-        } else if unicode.IsLetter(content[0]) {
-            content, term = takeUntil(content, unicode.IsLetter)
+        if unicode.IsDigit(runes[0]) {
+            runes, term = takeUntil(runes, unicode.IsDigit)
+        } else if unicode.IsLetter(runes[0]) {
+            runes, term = takeUntil(runes, unicode.IsLetter)
         } else {
-            content, term = take(content, 1)
+            runes, term = take(runes, 1)
         }
         if len(term) > 0 {
             terms = append(terms, string(term))
         }
     }
     return terms
-}
-
-func GramifyStr(content string, minN, maxN int) []string {
-    terms := TokenizeStr(content)
-    return gramify(terms, minN, maxN)
-}
-
-func gramify(terms []string, minN, maxN int) []string {
-    if len(terms) < minN {
-        return make([]string, 0)
-    }
-
-    ngmraTerms := make([]string, 0, len(terms))
-    for l, h := 0, minN; h <= len(terms); {
-        if (h - l) > maxN {
-            l += 1
-        }
-
-        for ll := l; (h - ll) >= minN; ll++ {
-            term := strings.Join(terms[ll:h], " ")
-            if len(term) > 0 {
-                ngmraTerms = append(ngmraTerms, term)
-            }
-        }
-
-        if h <= len(terms) {
-            h++
-        }
-    }
-    return ngmraTerms
 }
 
 func removeLeftPadding(doc []rune, toRemove func(rune) bool) []rune {
