@@ -3,7 +3,15 @@ package common
 import (
 	"strings"
 	"unicode"
+
+	"github.com/twmb/murmur3"
 )
+
+func HashToken(token string) uint32 {
+    h := murmur3.New32()
+    h.Write([]byte(token))
+    return h.Sum32()
+}
 
 func TokenizeBytes(content []byte) []string {
     return TokenizeStr(string(content))

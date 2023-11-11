@@ -61,8 +61,8 @@ func BuildIndices(cfg BuildCfg) {
             return err
         }
 
-        titleTokens := common.GramifyStr(data.Title, 1, 1)
-        textTokens := common.GramifyStr(data.Text, 1, 1)
+        titleTokens := common.GramifyStr(data.Title, 1, 4)
+        textTokens := common.GramifyStr(data.Text, 1, 4)
         tokens := make([]string, 0, len(titleTokens) + len(textTokens))
         tokens = append(tokens, titleTokens...)
         tokens = append(tokens, textTokens...)

@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/jmoiron/sqlx"
+	"github.com/kucicm/X-11/pkg/common"
 )
 
 type FullTextIndex interface {
@@ -44,16 +45,20 @@ func (t *tfIdf) Search(tokens []string, maxResults int) ([]SearchIndexResult, er
 
     q := `
     SELECT f.id, f.title, f.description, SUM(tf * idf) as rank
-    FROM tokens t
-    JOIN tf_idf_index i ON i.token_id = t.id
+    FROM tf_idf_index i
     JOIN files f ON f.id = i.file_id
-    WHERE token IN (?)
+    WHERE token_id IN (?)
     GROUP BY file_id
     HAVING rank > 0
     LIMIT ?;
     `
 
-    query, args, err := sqlx.In(q, tokens, maxResults)
+    tokenIds := make([]uint32, 0, len(tokens))
+    for i := range tokens {
+        tokenIds = append(tokenIds, common.HashToken(tokens[i]))
+    }
+
+    query, args, err := sqlx.In(q, tokenIds, maxResults)
     if err != nil {
         return nil, err
     }

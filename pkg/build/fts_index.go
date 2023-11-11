@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/jmoiron/sqlx"
+	"github.com/kucicm/X-11/pkg/common"
 )
 
 type FullTextIndexCfg struct {
@@ -27,7 +28,6 @@ func newFullTextIndex(cfg FullTextIndexCfg) *fullTextIndex {
 		"DROP TABLE IF EXISTS files;",
 		"CREATE TABLE IF NOT EXISTS tf_idf_index (token_id INTEGER, tf REAL, idf REAL, file_id INTEGER);",
 		"CREATE TABLE IF NOT EXISTS files (id INTEGER PRIMARY KEY, title varchar(255), url varchar(255), description TEXT);",
-		"CREATE TABLE IF NOT EXISTS tokens (id INTEGER PRIMARY KEY, token NVARCHAR(255), UNIQUE(id, token));",
 		"PRAGMA synchronous = OFF;",
 		"PRAGMA journal_mode = MEMORY;",
 	}
@@ -38,7 +38,7 @@ func newFullTextIndex(cfg FullTextIndexCfg) *fullTextIndex {
 
 	return &fullTextIndex{
 		db:     db,
-		idf:    &idf{count: 0, tokenIdFreq: make(map[string]int)},
+		idf:    &idf{count: 0, tokenIdFreq: make(map[uint32]int)},
         tokenCache: make(map[string]int64),
 	}
 }
@@ -50,15 +50,15 @@ func (b *fullTextIndex) AddDocument(doc Document) {
 	b.save(doc, relativeFreq)
 }
 
-func computeRelativeFrequency(tokens []string) map[string]int {
-	relativeFreq := make(map[string]int)
-	for _, token := range tokens {
-		relativeFreq[token] += 1
+func computeRelativeFrequency(tokens []string) map[uint32]int {
+	relativeFreq := make(map[uint32]int)
+	for i := range tokens {
+		relativeFreq[common.HashToken(tokens[i])] += 1
 	}
 	return relativeFreq
 }
 
-func (b *fullTextIndex) save(doc Document, relativeFreq map[string]int) {
+func (b *fullTextIndex) save(doc Document, relativeFreq map[uint32]int) {
 	tx := b.db.MustBegin()
 
 	res := tx.MustExec("INSERT INTO files (title, url, description) VALUES ($1, $2, $3)", doc.Title, doc.Url, doc.Description)
@@ -73,15 +73,7 @@ func (b *fullTextIndex) save(doc Document, relativeFreq map[string]int) {
 	}
 	defer stmt.Close()
 
-	tokenInsert, err := tx.Preparex("INSERT OR IGNORE INTO tokens (token) VALUES ($1);")
-	if err != nil {
-		log.Fatalf("ERROR: failed to prepare stmt %s", err)
-
-	}
-
-	for token, freq := range relativeFreq {
-        tokenId := b.getTokenId(tokenInsert, token)
-
+	for tokenId, freq := range relativeFreq {
 		tf := float64(freq) / float64(len(doc.Tokens))
 		_ = stmt.MustExec(tokenId, tf, fileId)
 	}
@@ -120,7 +112,6 @@ func (b *fullTextIndex) createIndices() {
 	}(time.Now())
 
 	b.db.MustExec("CREATE INDEX idx_token_id_tf_idf_index ON tf_idf_index (token_id);")
-	b.db.MustExec("CREATE INDEX idx_token_tokens ON tokens (token);")
 }
 
 func (b *fullTextIndex) saveIDF() {
@@ -156,18 +147,18 @@ func (b *fullTextIndex) vacuum() {
 
 type idf struct {
 	count      int
-	tokenIdFreq map[string]int
+	tokenIdFreq map[uint32]int
 }
 
-func (i *idf) update(relativeFreq map[string]int) {
+func (i *idf) update(relativeFreq map[uint32]int) {
 	for k, v := range relativeFreq {
 		i.tokenIdFreq[k] += v
 		i.count += v
 	}
 }
 
-func (i *idf) get() map[string]float64 {
-	out := make(map[string]float64)
+func (i *idf) get() map[uint32]float64 {
+	out := make(map[uint32]float64)
 	for token, freq := range i.tokenIdFreq {
 		out[token] = max(1.0, math.Log10(float64(i.count)/float64(1+freq)))
 	}
