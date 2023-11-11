@@ -129,10 +129,8 @@ func (t *Tokenizer) populateCache() {
         }
         t.encodeCache[token] = id
         t.decodeCache[id] = token
-        log.Printf("%d -> %s", id, token)
     }
     log.Printf("loaded %d unique tokens", len(t.encodeCache))
-    log.Printf("loaded %d unique tokens", len(t.decodeCache))
 
 }
 
