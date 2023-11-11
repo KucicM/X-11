@@ -1,7 +1,6 @@
 package common
 
 import (
-	"database/sql"
 	"fmt"
 	"log"
 	"time"
