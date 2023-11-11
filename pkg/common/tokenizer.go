@@ -1,77 +1,62 @@
 package common
 
 import (
-	"fmt"
-	"log"
-	"time"
+	"strings"
 	"unicode"
-
-	"github.com/jmoiron/sqlx"
 )
 
-type TokenizerCfg struct {
-    DbPath string `json:"db-path"`
-    BuildMode bool `json:"build"`
+func TokenizeBytes(content []byte) []string {
+    return TokenizeStr(string(content))
 }
 
-type Tokenizer struct {
-    id int
-    buildMode bool
-    decodeCache map[int]string
-    encodeCache map[string]int
-    dbPath string
+func TokenizeStr(contnet string) []string {
+    return TokenizeRunes([]rune(contnet))
 }
 
-func NewTokenizer(cfg TokenizerCfg) *Tokenizer {
-    tok := &Tokenizer{
-        id: 1, 
-        buildMode: cfg.BuildMode, 
-        decodeCache: make(map[int]string), 
-        encodeCache: make(map[string]int),
-        dbPath: cfg.DbPath,
+func TokenizeRunes(content []rune) []string {
+    terms := make([]string, 0)
+    for len(content) > 0 {
+        content = removeLeftPadding(content, func(r rune) bool {
+            return unicode.IsSpace(r) || unicode.IsPunct(r)
+        })
+
+        if len(content) == 0 {
+            break
+        }
+
+        var term []rune
+        if unicode.IsDigit(content[0]) {
+            content, term = takeUntil(content, unicode.IsDigit)
+        } else if unicode.IsLetter(content[0]) {
+            content, term = takeUntil(content, unicode.IsLetter)
+        } else {
+            content, term = take(content, 1)
+        }
+        if len(term) > 0 {
+            terms = append(terms, string(term))
+        }
     }
-
-    if tok.buildMode {
-        log.Printf("rebuilding %s", cfg.DbPath)
-        db := sqlx.MustOpen("sqlite3", cfg.DbPath)
-        defer db.Close()
-        db.MustExec("CREATE TABLE IF NOT EXISTS tokens (id INTEGER, token BLOB);")
-        db.MustExec("DELETE FROM tokens")
-        db.MustExec("PRAGMA synchronous = OFF;")
-        db.MustExec("PRAGMA journal_mode = MEMORY;")
-    } else {
-        tok.populateCache()
-    }
-
-    return tok
+    return terms
 }
 
-// TODO; reduce number of conversions
-func (t *Tokenizer) TokenizeStr(str string) []Token {
-    return t.Tokenize([]byte(str))
+func GramifyStr(content string, minN, maxN int) []string {
+    terms := TokenizeStr(content)
+    return gramify(terms, minN, maxN)
 }
 
-// []byte -> []rune -> [][]rune -> token
-func (t *Tokenizer) Tokenize(content []byte) []Token {
-    terms := breakIntoTerms(content)
-    return t.toTokens(terms)
-}
-
-
-func (t *Tokenizer) Gramify(content []byte, minN, maxN int) []Token {
-    terms := breakIntoTerms(content)
+func gramify(terms []string, minN, maxN int) []string {
     if len(terms) < minN {
-        return make([]Token, 0)
+        return make([]string, 0)
     }
 
-    ngmraTerms := make([][]rune, 0, len(terms))
+    ngmraTerms := make([]string, 0, len(terms))
     for l, h := 0, minN; h <= len(terms); {
         if (h - l) > maxN {
             l += 1
         }
 
         for ll := l; (h - ll) >= minN; ll++ {
-            term := mergeTerms(terms[ll:h])
+            term := strings.Join(terms[ll:h], " ")
             if len(term) > 0 {
                 ngmraTerms = append(ngmraTerms, term)
             }
@@ -81,127 +66,7 @@ func (t *Tokenizer) Gramify(content []byte, minN, maxN int) []Token {
             h++
         }
     }
-    return t.toTokens(ngmraTerms)
-}
-
-func (t *Tokenizer) toTokens(terms [][]rune) []Token {
-    ret := make([]Token, 0, len(terms))
-    for i := range terms {
-        if id := t.encode(string(terms[i])); id != 0 {
-            if len(terms[i]) > 0 {
-                ret = append(ret, Token{Id: id, Runes: terms[i]})
-            }
-        }
-    }
-    return ret
-}
-
-func (t *Tokenizer) encode(val string) int {
-    id, ok := t.encodeCache[val]
-    if !ok && t.buildMode {
-        id, t.id = t.id, t.id + 1
-        t.encodeCache[val] = id
-        t.decodeCache[id] = val
-    }
-    return id
-}
-
-func (t *Tokenizer) decode(val int) string {
-    return t.decodeCache[val]
-}
-
-func (t *Tokenizer) populateCache() {
-    db := sqlx.MustOpen("sqlite3", fmt.Sprintf("%s?mode=ro", t.dbPath))
-    defer db.Close()
-
-    rows, err := db.Query("SELECT id, token FROM tokens;")
-    if err != nil {
-        log.Fatalf("ERROR: cannot query tokens %s", err)
-    }
-    defer rows.Close()
-
-    for rows.Next() {
-        var id int
-        var token string
-        if err := rows.Scan(&id, &token); err != nil {
-            log.Fatalf("ERROR: cannot scan token row %s", err)
-        }
-        t.encodeCache[token] = id
-        t.decodeCache[id] = token
-    }
-    log.Printf("loaded %d unique tokens", len(t.encodeCache))
-
-}
-
-func (t *Tokenizer) Close() {
-    log.Printf("saving token mapping with %d tokens", len(t.encodeCache))
-    defer func(start time.Time) {
-        log.Printf("token mapping saved in %v", time.Since(start))
-    }(time.Now())
-
-
-    db := sqlx.MustOpen("sqlite3", t.dbPath)
-
-    tx := db.MustBegin()
-    defer tx.Rollback()
-
-    stmt, err := tx.Preparex("INSERT INTO tokens (id, token) VALUES (?, ?);")
-    if err != nil {
-        log.Fatalf("ERROR: prepare to tokens %s", err)
-    }
-    defer stmt.Close()
-
-    for token, id := range t.encodeCache {
-        _ = stmt.MustExec(id, token)
-    }
-
-    if err := tx.Commit(); err != nil {
-        log.Fatalf("ERROR: failed to commit to token db")
-    }
-    if err = db.Close(); err != nil {
-        log.Fatalf("ERROR: failed to close token db %s", err)
-    }
-}
-
-func mergeTerms(terms [][]rune) []rune {
-    total := 0
-    for i := range terms {
-        total += len(terms[i]) + 1
-    }
-
-    ret := make([]rune, total)
-    for i := range terms {
-        ret = append(ret, terms[i]...)
-    }
-    return ret
-}
-
-// document = convert []rune to [][]rune
-func breakIntoTerms(content []byte) [][]rune {
-    doc := []rune(string(content))
-    terms := make([][]rune, 0)
-    for len(doc) > 0 {
-        doc = removeLeftPadding(doc, func(r rune) bool {
-            return unicode.IsSpace(r) || unicode.IsPunct(r)
-        })
-
-        if len(doc) == 0 {
-            break
-        }
-
-        var term []rune
-        if unicode.IsDigit(doc[0]) {
-            doc, term = takeUntil(doc, unicode.IsDigit)
-        } else if unicode.IsLetter(doc[0]) {
-            doc, term = takeUntil(doc, unicode.IsLetter)
-        } else {
-            doc, term = take(doc, 1)
-        }
-        if len(term) > 0 {
-            terms = append(terms, term)
-        }
-    }
-    return terms
+    return ngmraTerms
 }
 
 func removeLeftPadding(doc []rune, toRemove func(rune) bool) []rune {

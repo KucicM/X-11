@@ -15,7 +15,6 @@ import (
 type BuildCfg struct {
     SourceFolder string `json:"source-folder"`
     FtsCfg FullTextIndexCfg `json:"full-text-index"`
-    TokenizerCfg common.TokenizerCfg `json:"tokenizer"`
 }
 
 type InputData struct {
@@ -25,12 +24,15 @@ type InputData struct {
     Description string `json:"description"`
 }
 
+type Document struct {
+    Path string
+    Title string
+    Tokens []string
+    Url string
+    Description string
+}
 
 func BuildIndices(cfg BuildCfg) {
-
-    tokenizer := common.NewTokenizer(cfg.TokenizerCfg)
-    defer tokenizer.Close()
-
     fts := newFullTextIndex(cfg.FtsCfg)
     defer fts.close()
 
@@ -59,13 +61,13 @@ func BuildIndices(cfg BuildCfg) {
             return err
         }
 
-        titleTokens := tokenizer.Tokenize([]byte(data.Title))
-        textTokens := tokenizer.Gramify([]byte(data.Text), 1, 1)
-        tokens := make([]common.Token, 0, len(titleTokens) + len(textTokens))
+        titleTokens := common.GramifyStr(data.Title, 1, 1)
+        textTokens := common.GramifyStr(data.Text, 1, 1)
+        tokens := make([]string, 0, len(titleTokens) + len(textTokens))
         tokens = append(tokens, titleTokens...)
         tokens = append(tokens, textTokens...)
 
-        doc := common.Document{
+        doc := Document{
             Path: path,
             Title: data.Title,
             Tokens: tokens,

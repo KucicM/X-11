@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/jmoiron/sqlx"
-    "github.com/kucicm/X-11/pkg/common"
 )
 
 type FullTextIndexCfg struct {
@@ -17,6 +16,7 @@ type FullTextIndexCfg struct {
 type fullTextIndex struct {
 	db  *sqlx.DB
 	idf *idf
+    tokenCache map[string]int64
 }
 
 func newFullTextIndex(cfg FullTextIndexCfg) *fullTextIndex {
@@ -27,40 +27,40 @@ func newFullTextIndex(cfg FullTextIndexCfg) *fullTextIndex {
 		"DROP TABLE IF EXISTS files;",
 		"CREATE TABLE IF NOT EXISTS tf_idf_index (token_id INTEGER, tf REAL, idf REAL, file_id INTEGER);",
 		"CREATE TABLE IF NOT EXISTS files (id INTEGER PRIMARY KEY, title varchar(255), url varchar(255), description TEXT);",
+		"CREATE TABLE IF NOT EXISTS tokens (id INTEGER PRIMARY KEY, token NVARCHAR(255), UNIQUE(id, token));",
 		"PRAGMA synchronous = OFF;",
 		"PRAGMA journal_mode = MEMORY;",
 	}
 
 	for _, query := range initQueries {
-		if _, err := db.Exec(query); err != nil {
-			db.Close()
-			log.Fatalf("ERROR: exec on query '%s' failes %s", query, err)
-		}
+        db.MustExec(query)
 	}
 
 	return &fullTextIndex{
 		db:     db,
-		idf:    &idf{count: 0, tokenIdFreq: make(map[int]int)},
+		idf:    &idf{count: 0, tokenIdFreq: make(map[string]int)},
+        tokenCache: make(map[string]int64),
 	}
 }
 
-func (b *fullTextIndex) AddDocument(doc common.Document) {
+func (b *fullTextIndex) AddDocument(doc Document) {
 	relativeFreq := computeRelativeFrequency(doc.Tokens)
 
 	b.idf.update(relativeFreq)
 	b.save(doc, relativeFreq)
 }
 
-func computeRelativeFrequency(tokens []common.Token) map[int]int {
-	relativeFreq := make(map[int]int)
+func computeRelativeFrequency(tokens []string) map[string]int {
+	relativeFreq := make(map[string]int)
 	for _, token := range tokens {
-		relativeFreq[token.Id] += 1
+		relativeFreq[token] += 1
 	}
 	return relativeFreq
 }
 
-func (b *fullTextIndex) save(doc common.Document, relativeFreq map[int]int) {
+func (b *fullTextIndex) save(doc Document, relativeFreq map[string]int) {
 	tx := b.db.MustBegin()
+
 	res := tx.MustExec("INSERT INTO files (title, url, description) VALUES ($1, $2, $3)", doc.Title, doc.Url, doc.Description)
 	fileId, err := res.LastInsertId()
 	if err != nil {
@@ -73,7 +73,15 @@ func (b *fullTextIndex) save(doc common.Document, relativeFreq map[int]int) {
 	}
 	defer stmt.Close()
 
-	for tokenId, freq := range relativeFreq {
+	tokenInsert, err := tx.Preparex("INSERT OR IGNORE INTO tokens (token) VALUES ($1);")
+	if err != nil {
+		log.Fatalf("ERROR: failed to prepare stmt %s", err)
+
+	}
+
+	for token, freq := range relativeFreq {
+        tokenId := b.getTokenId(tokenInsert, token)
+
 		tf := float64(freq) / float64(len(doc.Tokens))
 		_ = stmt.MustExec(tokenId, tf, fileId)
 	}
@@ -81,6 +89,20 @@ func (b *fullTextIndex) save(doc common.Document, relativeFreq map[int]int) {
 	if err = tx.Commit(); err != nil {
 		log.Fatalf("ERROR: cannot commit %s", err)
 	}
+}
+
+func (b *fullTextIndex) getTokenId(stmt *sqlx.Stmt, token string) int64 {
+    if tokenId, ok := b.tokenCache[token]; ok {
+        return tokenId
+    }
+
+    r := stmt.MustExec(token)
+    tokenId, err := r.LastInsertId()
+    if err != nil {
+        log.Fatalf("ERROR: cannot get last insert row id for token %s", err)
+    }
+    b.tokenCache[token] = tokenId
+    return tokenId
 }
 
 func (b *fullTextIndex) close() {
@@ -98,6 +120,7 @@ func (b *fullTextIndex) createIndices() {
 	}(time.Now())
 
 	b.db.MustExec("CREATE INDEX idx_token_id_tf_idf_index ON tf_idf_index (token_id);")
+	b.db.MustExec("CREATE INDEX idx_token_tokens ON tokens (token);")
 }
 
 func (b *fullTextIndex) saveIDF() {
@@ -133,20 +156,20 @@ func (b *fullTextIndex) vacuum() {
 
 type idf struct {
 	count      int
-	tokenIdFreq map[int]int
+	tokenIdFreq map[string]int
 }
 
-func (i *idf) update(relativeFreq map[int]int) {
+func (i *idf) update(relativeFreq map[string]int) {
 	for k, v := range relativeFreq {
 		i.tokenIdFreq[k] += v
 		i.count += v
 	}
 }
 
-func (i *idf) get() map[int]float64 {
-	out := make(map[int]float64)
-	for tokenId, freq := range i.tokenIdFreq {
-		out[tokenId] = max(1.0, math.Log10(float64(i.count)/float64(1+freq)))
+func (i *idf) get() map[string]float64 {
+	out := make(map[string]float64)
+	for token, freq := range i.tokenIdFreq {
+		out[token] = max(1.0, math.Log10(float64(i.count)/float64(1+freq)))
 	}
 	return out
 }
