@@ -25,7 +25,7 @@ type FullTextSearchResult struct {
     FileId int `db:"file_id"`
     Rank float64 `db:"rank"`
     Title string `db:"title"`
-    Description string
+    Description string `db:"description"`
 }
 
 type FullTextSearch struct {
@@ -90,6 +90,7 @@ func (fts *FullTextSearch) Search(query string, page int) ([]FullTextSearchResul
         file_id
         , rank
         , title 
+        , snippet(texts, 1, '', '', '...', 32) as description
     FROM texts as t
     JOIN documents as f on f.id = t.file_id
     WHERE text MATCH $1
