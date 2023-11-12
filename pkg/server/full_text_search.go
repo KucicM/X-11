@@ -23,19 +23,17 @@ type FullTextSearchCfg struct {
 
 type FullTextSearchResult struct {
     FileId int `db:"file_id"`
-    Rank float64 `db:"rank"`
     Title string `db:"title"`
-    Description string `db:"description"`
     NextPage string // should not be here...
 }
 
 type FullTextSearch struct {
     dbUrl string
-    rpp int
+    limit int
 }
 
 func NewFullTextSearch(cfg FullTextSearchCfg) *FullTextSearch {
-    fts := &FullTextSearch{dbUrl: cfg.DbUrl, rpp: cfg.ResultsPerPage}
+    fts := &FullTextSearch{dbUrl: cfg.DbUrl, limit: cfg.ResultsPerPage}
     if cfg.Rebuild {
         fts.rebuild()
     }
@@ -95,9 +93,7 @@ func (fts *FullTextSearch) Search(query string, page int) ([]FullTextSearchResul
     selectQuery := `
     SELECT 
         f.id as file_id
-        , rank
         , title 
-        , '' as description
     FROM texts as t
     JOIN documents as f on f.id = t.rowid
     WHERE text MATCH $1
@@ -106,9 +102,9 @@ func (fts *FullTextSearch) Search(query string, page int) ([]FullTextSearchResul
     OFFSET $3;`
 
     query = strings.Join(tokens, " ")
-    offset, limit := fts.computeRange(page)
+    offset := fts.computeOffset(page)
     var res []FullTextSearchResult
-    if err := db.Select(&res, selectQuery, query, limit, offset); err != nil {
+    if err := db.Select(&res, selectQuery, query, fts.limit, offset); err != nil {
         return nil, err
     }
 
@@ -129,9 +125,7 @@ func (fts *FullTextSearch) GetUrl(file_id int) (string, error) {
     return url, nil
 }
 
-func (fts *FullTextSearch) computeRange(page int) (int, int) {
-    offset := page * fts.rpp
-    limit := fts.rpp + offset
-    return offset, limit
+func (fts *FullTextSearch) computeOffset(page int) int {
+    return page * fts.limit
 }
 
