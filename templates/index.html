@@ -37,8 +37,9 @@
                 end
 
                 on keyup[key=='Enter'] from me call me.blur() 
+                then go to the top of body smoothly
                 then send enter to #autocompleteOuter
-                then send search end
+                then send search
 
                 on selectUpdate(e)
                 send updateQuery(e:e)
