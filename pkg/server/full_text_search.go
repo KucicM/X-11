@@ -54,27 +54,30 @@ func (fts *FullTextSearch) rebuild() {
         , title TEXT
     );`)
     _ = db.MustExec(`CREATE VIRTUAL TABLE texts USING FTS5(
-        file_id
         , text
         , tokenize="PORTER ASCII"
+        , content=""
     );`)
     if err := db.Close(); err != nil {
         log.Fatalf("ERROR: cannot close fts db %s", err)
     }
 }
 
-func (fts *FullTextSearch) AddDocumetn(doc Document) {
+func (fts *FullTextSearch) AddDocument(doc Document) {
     db := sqlx.MustOpen("sqlite3", fts.dbUrl)
     defer db.Close()
 
-    res := db.MustExec("INSERT INTO documents (url, title) VALUES ($1, $2);", doc.Url, doc.Title)
-    file_id, err := res.LastInsertId()
-    if err != nil {
-        log.Fatalf("ERROR: failed to get last insert id for file %s", err)
-    }
+    _ = db.MustExec("INSERT INTO documents (url, title) VALUES ($1, $2);", doc.Url, doc.Title)
 
     text := strings.Join(doc.Tokens, " ")
-    _ = db.MustExec("INSERT INTO texts (file_id, text) VALUES (?, ?);", file_id, text)
+    _ = db.MustExec("INSERT INTO texts (text) VALUES (?);", text)
+}
+
+func (fts *FullTextSearch) FinishIndexing() {
+    db := sqlx.MustOpen("sqlite3", fts.dbUrl)
+    defer db.Close()
+
+    _ = db.MustExec("VACUUM;")
 }
 
 func (fts *FullTextSearch) Search(query string, page int) ([]FullTextSearchResult, error) {
@@ -91,12 +94,12 @@ func (fts *FullTextSearch) Search(query string, page int) ([]FullTextSearchResul
 
     selectQuery := `
     SELECT 
-        file_id
+        f.id as file_id
         , rank
         , title 
-        , snippet(texts, 1, '', '', '...', 32) as description
+        , '' as description
     FROM texts as t
-    JOIN documents as f on f.id = t.file_id
+    JOIN documents as f on f.id = t.rowid
     WHERE text MATCH $1
     ORDER BY rank
     LIMIT $2

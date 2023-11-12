@@ -26,6 +26,7 @@ type InputData struct {
 
 func BuildIndices(cfg BuildCfg) {
     fts := server.NewFullTextSearch(cfg.FtsCfg)
+    defer fts.FinishIndexing()
 
     err := filepath.WalkDir(cfg.SourceFolder, func(path string, d fs.DirEntry, err error) error {
         if err != nil {
@@ -63,7 +64,7 @@ func BuildIndices(cfg BuildCfg) {
             Tokens: tokens,
             Url: data.Url,
         }
-        fts.AddDocumetn(doc)
+        fts.AddDocument(doc)
         return nil
     })
 
