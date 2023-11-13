@@ -78,6 +78,10 @@ body {
     padding-bottom: 1rem;
 }
 
+.searchResults div h3 {
+    font-weight: normal;
+}
+
 @media(prefers-color-scheme: dark) {
     body {
         background: #121212;

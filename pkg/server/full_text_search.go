@@ -25,6 +25,7 @@ type FullTextSearchCfg struct {
 type FullTextSearchResult struct {
     FileId int `db:"file_id"`
     Title string `db:"title"`
+    Description string `db:"description"`
     NextPage string // should not be here...
 }
 
@@ -94,6 +95,7 @@ func (fts *FullTextSearch) Search(query string, page int) ([]FullTextSearchResul
     SELECT 
         f.id as file_id
         , title 
+        , SNIPPET(texts, 0, '', '', '...', 40) as description
     FROM texts as t
     JOIN documents as f on f.id = t.rowid
     WHERE text MATCH $1
