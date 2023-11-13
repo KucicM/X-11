@@ -5,7 +5,6 @@ import (
 	"compress/gzip"
 	"fmt"
 	"log"
-	"math/rand"
 	"net/http"
 	"strconv"
 	"strings"
@@ -82,18 +81,13 @@ func (s *server) autocompleteHandler(w http.ResponseWriter, r *http.Request) {
 
     tmpl := template.Must(template.ParseFiles(s.autocompleteTemplatePath))
 
-    // todo fetch actula data
-    var letterRunes = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
-    data := make([]string, 5)
-    for i := range data {
-
-        word := []rune(query)
-        for j := 0; j < rand.Intn(5); j++ {
-            word = append(word, letterRunes[j])
-        }
-        data[i] = string(word)
+    res, err := s.fts.Autocomplete(query)
+    if err != nil {
+        log.Printf("ERROR: /autocomplete error %s", err)
+        w.WriteHeader(http.StatusInternalServerError)
+        return
     }
-    tmpl.Execute(w, data)
+    tmpl.Execute(w, res)
 }
 
 func (s *server) searchHandler(w http.ResponseWriter, r *http.Request) {
@@ -200,7 +194,6 @@ func (s *server) articleClickHandler(w http.ResponseWriter, r *http.Request) {
 func isPartialRequest(header http.Header) bool {
     return header.Get("Hx-Request") == "true"
 }
-
 
 // TODO move to utils
 type gzipResponseWriter struct {

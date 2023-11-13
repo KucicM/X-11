@@ -4,13 +4,12 @@ import (
 	"unicode"
 )
 
-
 func Tokenize(contnet string) []string {
     runes := []rune(contnet)
     terms := make([]string, 0)
     for len(runes) > 0 {
         runes = removeLeftPadding(runes, func(r rune) bool {
-            return unicode.IsSpace(r) || unicode.IsPunct(r)
+            return unicode.IsSpace(r) || unicode.IsPunct(r) || r == '='
         })
 
         if len(runes) == 0 {
