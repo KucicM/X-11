@@ -43,13 +43,7 @@ func StartServer(cfg ServerCfg) {
     http.HandleFunc("/articleClick", srv.articleClickHandler)
 
     log.Printf("sever started in %v", time.Since(start))
-    err := http.ListenAndServe(fmt.Sprintf(":%d", cfg.Port), nil)
-    srv.stop()
-    log.Fatal(err)
-}
-
-func (s *server) stop() {
-    log.Println("stopping server...")
+    log.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", cfg.Port), nil))
 }
 
 func (s *server) rootHandler(w http.ResponseWriter, r *http.Request) {
