@@ -1,7 +1,6 @@
 package server
 
 import (
-	"fmt"
 	"log"
 	"strings"
 	"time"
@@ -107,42 +106,6 @@ func (fts *FullTextSearch) Search(query string, page int) ([]FullTextSearchResul
     offset := fts.computeOffset(page)
     var res []FullTextSearchResult
     if err := db.Select(&res, selectQuery, query, fts.limit, offset); err != nil {
-        return nil, err
-    }
-
-    return res, nil
-}
-
-func (fts *FullTextSearch) Autocomplete(query string) ([]string, error) {
-    tokens := common.Tokenize(query)
-    if len(tokens) == 0 {
-        return make([]string, 0), nil
-    }
-
-    db := sqlx.MustOpen("sqlite3", fts.dbUrl)
-    defer func(start time.Time) {
-        db.Close()
-        log.Printf("INFO: search of %d tokens took %s", len(tokens), time.Since(start))
-    }(time.Now())
-
-    selectQuery := `
-    WITH candidate AS (
-        SELECT
-            SNIPPET(texts, 0, '', '', '', 3) as autocomplete
-        FROM texts
-        WHERE text MATCH $1
-        ORDER BY rank
-    )
-    SELECT DISTINCT SUBSTR(autocomplete, INSTR(autocomplete, $2))
-    FROM candidate
-    WHERE INSTR(autocomplete, $2) > 0
-    LIMIT $3
-    `
-
-    query = strings.Join(tokens, " ")
-    match := fmt.Sprintf(`"%s"*`, query)
-    var res []string
-    if err := db.Select(&res, selectQuery, match, query, 5); err != nil {
         return nil, err
     }
 

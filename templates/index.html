@@ -1,114 +1,26 @@
 <!DOCTYPE html>
 <html>
-
     <head>
         <title>X-11</title>
-
         <meta charset="UTF-8">
         <link rel="stylesheet" href="assets/style.css">
         <script src="https://unpkg.com/htmx.org@1.9.6"></script>
-        <script src="https://unpkg.com/hyperscript.org@0.9.12"></script>
     </head>
 
     <body hx-history-elt>
         <div class="searchSpace">
-            <div hx-get="/search" hx-include="[name='query']"  hx-trigger="search" hx-target="#search-results" class="searchForm">
-                <input id="search-bar" autocomplete="off" class="searchBar" value="{{.Query}}"
-                name="query"
-                hx-get="/autocomplete"
-                hx-trigger="keyup[key!='Enter' && (keyCode<37 || keyCode > 40)] changed delay:50ms"
-                hx-target="#autocomplete"
+            <input 
+                class="searchBar"
+                autocomplete="off"
                 placeholder="search..."
-                _ = "
-                // on non arrow key, delete saved query
-                on keydown[keyCode<37 or keyCode>40] from me remove @og-query 
-
-                on keydown[keyCode==38] event.preventDefault()
-                on keyup[keyCode==38] event.preventDefault()
-
-                // on left/right reset the query
-                on keydown[keyCode==37 or keyCode==39] from me
-                if @og-query
-                    set my.value to @og-query
-                    then remove @og-query
-                    then call event.preventDefault()
-                    then set my selectionStart to me.value.length
-                    then set my selectionEnd to me.value.length
-                end
-
-                on keyup[key=='Enter'] from me call me.blur() 
-                then go to the top of body smoothly
-                then send enter to #autocompleteOuter
-                then send search
-
-                on selectUpdate(e)
-                send updateQuery(e:e)
-                if e.click send search end
-
-                on updateQuery(e)
-                if no @og-query set @og-query to me.value end
-                then if e.txt set me.value to e.txt 
-                else if @og-query set me.value to @og-query end
-                then set my selectionStart to me.value.length
-                then set my selectionEnd to me.value.length
-                then if e.click remove @og-query end
-                ">
-            </div>
-            <div id="autocompleteOuter"
-                class="autocompleteOuter"
-                style="display: none;"
-                _="
-                   on htmx:afterOnLoad from #search-bar send showHide to me
-                   on enter send showHide to me
-
-                   on click from elsewhere if target.id == 'search-bar' send showHide else hide me end
-
-                   on showHide
-                   get #search-bar
-                   then if it != document.activeElement hide me 
-                   else if first <li/> in me show me else hide me end end
-
-                   on newSelect(e) if e.click hide me end
-                ">
-                <div class="autocompleteInner">
-                    <ul id="autocomplete"
-                        _ = "
-                        // on non arrow key or left/right, remove selection
-                        on keydown[keyCode!=38 and keyCode!=40 and key!='Enter'] from #search-bar remove .selected from <li/> 
-
-                        // down
-                        on keydown[keyCode==40] from #search-bar
-                        set c to first <li.selected/> in me
-                        then if c get next <li/> from c end
-                        then if not c get first <li/> in me end
-                        then send newSelect(e:{'click': false, 'li': it})
-
-                        // up
-                        on keydown[keyCode==38] from #search-bar
-                        set c to first <li.selected/> in me
-                        then if c get previous <li/> from c end
-                        then if not c get last <li/> in me end
-                        then send newSelect(e:{'click': false, 'li': it})
-
-                        on keydown[key=='Enter'] from #search-bar
-                        get first <li.selected/> in me
-                        then if it send newSelect(e:{'click': true, 'li': it}) end
-
-                        on click from me
-                        if event.target.tagName == 'LI' 
-                        send newSelect(e:{'click': true, 'li': event.target}) end
-
-                        on newSelect(e)
-                        remove .selected from <li/> in me
-                        then if e.li add .selected to e.li end
-                        then send selectUpdate(e:{'click':e.click, 'txt':e.li.innerHTML}) to #search-bar
-                        ">
-                    </ul>
-                </div>
-            </div>
+                type="search"
+                hx-get="/search"
+                hx-target=".searchResults"
+                name="query"
+                >
         </div>
 
-        <div id="search-results" class="searchResults">
+        <div class="searchResults">
             {{.SearchResults}}
         </div>
 

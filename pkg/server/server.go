@@ -21,15 +21,11 @@ type ServerCfg struct {
 
 type server struct {
     fts *FullTextSearch
-
-    // to be replaced with in memory templates
-    autocompleteTemplatePath string
 }
 
 func StartServer(cfg ServerCfg) {
     start := time.Now()
     srv := &server{
-        autocompleteTemplatePath: fmt.Sprintf("%s/autocomplete_results.html", cfg.TemplatesPath),
         fts: NewFullTextSearch(cfg.FtsCfg),
     }
 
@@ -38,7 +34,6 @@ func StartServer(cfg ServerCfg) {
     http.Handle("/assets/", http.FileServer(http.Dir(assetsPath)))
 
     http.HandleFunc("/", makeGzipHandler(srv.rootHandler))
-    http.HandleFunc("/autocomplete", srv.autocompleteHandler)
     http.HandleFunc("/search", makeGzipHandler(srv.searchHandler))
     http.HandleFunc("/articleClick", srv.articleClickHandler)
 
@@ -60,28 +55,6 @@ func (s *server) rootHandler(w http.ResponseWriter, r *http.Request) {
         w.WriteHeader(http.StatusInternalServerError)
         return
     }
-}
-
-func (s *server) autocompleteHandler(w http.ResponseWriter, r *http.Request) {
-    if r.Method != http.MethodGet {
-        w.WriteHeader(http.StatusMethodNotAllowed)
-        return
-    }
-
-    query := strings.TrimSpace(r.URL.Query().Get("query"))
-    if query == "" {
-        return
-    }
-
-    tmpl := template.Must(template.ParseFiles(s.autocompleteTemplatePath))
-
-    res, err := s.fts.Autocomplete(query)
-    if err != nil {
-        log.Printf("ERROR: /autocomplete error %s", err)
-        w.WriteHeader(http.StatusInternalServerError)
-        return
-    }
-    tmpl.Execute(w, res)
 }
 
 func (s *server) searchHandler(w http.ResponseWriter, r *http.Request) {

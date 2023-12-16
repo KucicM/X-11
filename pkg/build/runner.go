@@ -1,4 +1,4 @@
-// entry point to build all indices (full text search index and autocomplete index)
+// entry point to build full text search index
 package build
 
 import (
